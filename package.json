@@ -1,0 +1,8 @@
+{
+  "name": "product-boilerplate-frontend",
+  "version": "1.0.0",
+  "description": "Product Boilerplate Frontend",
+  "keywords": ["vite", "template", "react", "tailwindcss", "typescript"],
+  "author": "Prabhat Prasad",
+  "license": "MIT"
+}
