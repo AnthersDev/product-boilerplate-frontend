@@ -1,8 +1,18 @@
 {
   "name": "product-boilerplate-frontend",
   "version": "1.0.0",
-  "description": "Product Boilerplate Frontend",
-  "keywords": ["vite", "template", "react", "tailwindcss", "typescript"],
+  "description": "",
+  "homepage": "https://github.com/AnthersDev/product-boilerplate-frontend#readme",
+  "bugs": {
+    "url": "https://github.com/AnthersDev/product-boilerplate-frontend/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/AnthersDev/product-boilerplate-frontend.git"
+  },
+  "license": "ISC",
   "author": "Prabhat Prasad",
-  "license": "MIT"
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  }
 }
