@@ -1,0 +1,121 @@
+name: Template CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: template-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  template-vite:
+    # Only trusted events may run a job that reads NPM_TOKEN_READ_ONLY.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: template-vite
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: template-vite/.node-version
+          cache: npm
+          cache-dependency-path: template-vite/package-lock.json
+
+      - name: Install dependencies
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN_READ_ONLY }}
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Type check
+        run: npm run type-check
+
+      - name: Build
+        run: npm run build
+
+  template-vite-fork:
+    # Fork pull requests validate against public dependencies without secrets.
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: template-vite
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: template-vite/.node-version
+          cache: npm
+          cache-dependency-path: template-vite/package-lock.json
+
+      - name: Remove private dependency
+        run: npm pkg delete 'dependencies[@marmeto_engineering/anthers-components]'
+
+      - name: Install public dependencies
+        env:
+          NODE_AUTH_TOKEN: ''
+        run: npm install --package-lock=false
+
+      - name: Create fork-safe private package stub
+        run: |
+          mkdir -p node_modules/@marmeto_engineering/anthers-components
+          cat > node_modules/@marmeto_engineering/anthers-components/package.json <<'EOF'
+          {
+            "name": "@marmeto_engineering/anthers-components",
+            "version": "0.0.0",
+            "type": "module",
+            "exports": {
+              ".": {
+                "types": "./index.d.ts",
+                "import": "./index.js",
+                "default": "./index.js"
+              },
+              "./styles.css": "./styles.css"
+            }
+          }
+          EOF
+          cat > node_modules/@marmeto_engineering/anthers-components/index.d.ts <<'EOF'
+          import type { ButtonHTMLAttributes, ReactElement } from 'react';
+
+          export declare const Button: (
+            props: ButtonHTMLAttributes<HTMLButtonElement> & { loading?: boolean },
+          ) => ReactElement;
+          EOF
+          cat > node_modules/@marmeto_engineering/anthers-components/index.js <<'EOF'
+          import React from 'react';
+
+          export const Button = ({ children, loading = false, ...props }) =>
+            React.createElement('button', { ...props, disabled: loading || props.disabled }, children);
+          EOF
+          touch node_modules/@marmeto_engineering/anthers-components/styles.css
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Type check
+        run: npm run type-check
+
+      - name: Build
+        run: npm run build

@@ -35,9 +35,11 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 'v22.14.0'
+          node-version: 'v24.20.0'
 
       - name: Install dependencies
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN_READ_ONLY }}
         run: npm install
 
       - name: Danger JS Action

@@ -30,6 +30,8 @@ jobs:
           node-version-file: .node-version
 
       - name: Install dependencies
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN_READ_ONLY }}
         run: |
           # Install dependencies based on the lockfile and the package manager
           if [ -f "yarn.lock" ]; then
