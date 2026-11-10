@@ -42,7 +42,7 @@ You can find useful information such as project structure, available scripts and
 
 ```sh
 fnm use
-npm login   # once per machine
+npm login --registry=https://registry.npmjs.org/   # once per machine
 npm install
 npm run dev
 ```
