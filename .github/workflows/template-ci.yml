@@ -71,7 +71,7 @@ jobs:
           cache-dependency-path: template-vite/package-lock.json
 
       - name: Remove private dependency
-        run: npm pkg delete 'dependencies["@marmeto_engineering/anthers-components"]'
+        run: npm pkg delete 'dependencies[@marmeto_engineering/anthers-components]'
 
       - name: Install public dependencies
         env:

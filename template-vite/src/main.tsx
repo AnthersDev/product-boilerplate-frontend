@@ -1,6 +1,7 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 
+import '@marmeto_engineering/anthers-components/styles.css';
 import '@/i18n';
 import reportWebVitals from '@/report-web-vitals';
 import App from '@/App';
