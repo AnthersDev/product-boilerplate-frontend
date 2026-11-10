@@ -38,8 +38,11 @@ You can find useful information such as project structure, available scripts and
 
 ## Quickstart
 
+`@marmeto_engineering/anthers-components` is a private package. The project `.npmrc` reads the registry token from `NODE_AUTH_TOKEN` (and takes precedence over any token in `~/.npmrc`), so export it before installing. In CI it comes from the `NPM_TOKEN` repository secret.
+
 ```sh
 fnm use
+export NODE_AUTH_TOKEN=<your npm read token>
 npm install
 npm run dev
 ```

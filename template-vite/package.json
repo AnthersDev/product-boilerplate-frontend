@@ -13,7 +13,7 @@
   "version": "0.1.0",
   "description": "A Web App created by create-awesome-node-app",
   "engines": {
-    "node": ">=18.15"
+    "node": ">=24 <25"
   },
   "browserslist": {
     "production": [
@@ -28,7 +28,9 @@
     ]
   },
   "dependencies": {
-    "@marmeto_engineering/anthers-components": "^2.0.157",
+    "@marmeto_engineering/anthers-components": "^2.0.859",
+    "@tanstack/react-query": "^5.107.1",
+    "axios": "^1.21.1",
     "i18next": "^24.2.3",
     "i18next-browser-languagedetector": "^8.2.0",
     "i18next-http-backend": "^3.0.2",
