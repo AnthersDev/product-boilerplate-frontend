@@ -17,6 +17,8 @@ concurrency:
 
 jobs:
   template-vite:
+    # Only trusted events may run a job that reads NPM_TOKEN.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
 
     defaults:
@@ -38,6 +40,43 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Type check
+        run: npm run type-check
+
+      - name: Build
+        run: npm run build
+
+  template-vite-fork:
+    # Fork pull requests validate against public dependencies without secrets.
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: template-vite
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: template-vite/.node-version
+          cache: npm
+          cache-dependency-path: template-vite/package-lock.json
+
+      - name: Remove private dependency
+        run: npm pkg delete 'dependencies["@marmeto_engineering/anthers-components"]'
+
+      - name: Install public dependencies
+        env:
+          NODE_AUTH_TOKEN: ''
+        run: npm install --package-lock=false
 
       - name: Lint
         run: npm run lint
