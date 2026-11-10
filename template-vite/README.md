@@ -38,13 +38,11 @@ You can find useful information such as project structure, available scripts and
 
 ## Quickstart
 
-`@marmeto_engineering/anthers-components` is a private package. The project `.npmrc` reads the registry token from `NODE_AUTH_TOKEN` (and takes precedence over any token in `~/.npmrc`), so export it before installing. In CI it comes from the repository Actions secret `NPM_TOKEN_READ_ONLY`.
-
-Replace `YOUR_NPM_READ_TOKEN` below with your npm read token before running the commands.
+`@marmeto_engineering/anthers-components` is a private package. Run `npm login` once per machine with an npm account in the `marmeto_engineering` org (ask in #engineering for access); npm then reads the package with that login. In CI the token comes from the Actions secret `NPM_TOKEN_READ_ONLY`.
 
 ```sh
 fnm use
-export NODE_AUTH_TOKEN="YOUR_NPM_READ_TOKEN"
+npm login --registry=https://registry.npmjs.org/   # once per machine
 npm install
 npm run dev
 ```

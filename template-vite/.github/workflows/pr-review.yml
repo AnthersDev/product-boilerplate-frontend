@@ -36,6 +36,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 'v24.20.0'
+          registry-url: https://registry.npmjs.org
+          scope: '@marmeto_engineering'
 
       - name: Install dependencies
         env:

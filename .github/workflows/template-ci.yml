@@ -35,6 +35,8 @@ jobs:
           node-version-file: template-vite/.node-version
           cache: npm
           cache-dependency-path: template-vite/package-lock.json
+          registry-url: https://registry.npmjs.org
+          scope: '@marmeto_engineering'
 
       - name: Install dependencies
         env:
