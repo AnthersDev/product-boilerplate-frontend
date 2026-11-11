@@ -99,17 +99,11 @@ const SelectOrganization = () => {
           {selection.error.message}
         </p>
       )}
-      {signOutError && (
-        <p role="alert" className="absolute inset-x-0 top-16 z-10 px-6 text-center text-sm text-red-600">
-          {signOutError}
-        </p>
-      )}
       <SelectOrganizationPage
         logo={brand.logo}
         organizations={organizations}
         onOrganizationSelect={onOrganizationSelect}
       />
-      <div className="absolute inset-x-0 bottom-8 flex justify-center">{signOutButton}</div>
     </div>
   );
 };
