@@ -1,6 +1,8 @@
 export type MockMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
 export interface MockRequest {
+  /** State storage owned by the mock adapter handling this request. */
+  adapterStorage: Map<symbol, unknown>;
   method: MockMethod;
   path: string;
   params: Record<string, string>;

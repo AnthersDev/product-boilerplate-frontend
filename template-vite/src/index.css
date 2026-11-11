@@ -1,0 +1,12 @@
+@import 'tailwindcss';
+/*
+ * Anthers ships a full Tailwind build, including @layer base. Import it after
+ * `tailwindcss` so that layer lands last and Anthers element styles win.
+ */
+@import '@marmeto_engineering/anthers-components/styles.css';
+
+/*
+ * Anthers emits one file per module under dist/esm. Tailwind v4 production
+ * scans skip node_modules unless @source lists them.
+ */
+@source '../node_modules/@marmeto_engineering/anthers-components/dist/esm';

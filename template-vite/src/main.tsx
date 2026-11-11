@@ -1,10 +1,14 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 
-import '@marmeto_engineering/anthers-components/styles.css';
+import '@/index.css';
 import '@/i18n';
 import reportWebVitals from '@/report-web-vitals';
 import App from '@/App';
+import { env } from '@/libs/env';
+import { installMockApi } from '@/services/mocks';
+
+if (env.useMockApi) installMockApi();
 
 const root = createRoot(document.getElementById('root') as HTMLElement);
 root.render(

@@ -1,4 +1,4 @@
-import { QueryClient } from '@tanstack/react-query';
+import { MutationCache, QueryCache, QueryClient } from '@tanstack/react-query';
 
 import { ApiError } from '@/services/api';
 
@@ -15,8 +15,19 @@ const shouldRetry = (failureCount: number, error: ApiError) => {
   return failureCount < MAX_RETRIES;
 };
 
-export const createQueryClient = () =>
-  new QueryClient({
+interface CreateQueryClientOptions {
+  /** Called when any query or mutation fails with 401, e.g. because the session cookie expired. */
+  onUnauthorized?: (queryClient: QueryClient) => void | Promise<void>;
+}
+
+export const createQueryClient = ({ onUnauthorized }: CreateQueryClientOptions = {}) => {
+  const handleError = async (error: unknown) => {
+    if (error instanceof ApiError && error.status === 401) await onUnauthorized?.(queryClient);
+  };
+
+  const queryClient: QueryClient = new QueryClient({
+    queryCache: new QueryCache({ onError: handleError }),
+    mutationCache: new MutationCache({ onError: handleError }),
     defaultOptions: {
       queries: {
         staleTime: 60_000,
@@ -28,3 +39,6 @@ export const createQueryClient = () =>
       },
     },
   });
+
+  return queryClient;
+};

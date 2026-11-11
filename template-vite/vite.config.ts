@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite';
 import path from 'path';
 import react from '@vitejs/plugin-react';
+import tailwindcss from '@tailwindcss/vite';
 import eslint from 'vite-plugin-eslint';
 import { VitePWA } from 'vite-plugin-pwa';
 
@@ -43,7 +44,7 @@ const vitePluginPWA = () =>
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  plugins: [react(), eslint(), vitePluginPWA()],
+  plugins: [react(), tailwindcss(), eslint(), vitePluginPWA()],
   server: {
     host: '0.0.0.0',
     port: parseInt(PORT, 10),
