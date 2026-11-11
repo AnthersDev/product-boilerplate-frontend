@@ -35,6 +35,7 @@ interface MockAuthState {
 interface MockAuthStorage {
   memoryState: MockAuthState;
   useMemoryState: boolean;
+  sessionPersisted: boolean;
 }
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -75,7 +76,11 @@ const getAuthStorage = (adapterStorage: Map<symbol, unknown>): MockAuthStorage =
   const existing = adapterStorage.get(AUTH_STORAGE_KEY);
   if (existing) return existing as MockAuthStorage;
 
-  const storage: MockAuthStorage = { memoryState: { pendingEmail: null, session: null }, useMemoryState: false };
+  const storage: MockAuthStorage = {
+    memoryState: { pendingEmail: null, session: null },
+    useMemoryState: false,
+    sessionPersisted: false,
+  };
   adapterStorage.set(AUTH_STORAGE_KEY, storage);
   return storage;
 };
@@ -97,6 +102,7 @@ const readState = (adapterStorage: Map<symbol, unknown>): MockAuthState => {
       const state: unknown = JSON.parse(raw);
       if (isMockAuthState(state)) {
         storage.memoryState = state;
+        storage.sessionPersisted = state.session !== null;
         return state;
       }
     } catch {
@@ -105,6 +111,7 @@ const readState = (adapterStorage: Map<symbol, unknown>): MockAuthState => {
   }
 
   storage.memoryState = { pendingEmail: null, session: null };
+  storage.sessionPersisted = false;
   return storage.memoryState;
 };
 
@@ -124,6 +131,7 @@ const writeState = (adapterStorage: Map<symbol, unknown>, state: MockAuthState):
   }
 
   storage.memoryState = state;
+  storage.sessionPersisted = state.session !== null;
   return true;
 };
 
@@ -223,7 +231,8 @@ export const authMockRoutes: MockRoute[] = [
     handler: ({ adapterStorage }) => {
       const previousState = readState(adapterStorage);
       const storage = getAuthStorage(adapterStorage);
-      if (!writeState(adapterStorage, { pendingEmail: null, session: null })) {
+      const sessionWasPersisted = storage.sessionPersisted;
+      if (!writeState(adapterStorage, { pendingEmail: null, session: null }) && sessionWasPersisted) {
         storage.memoryState = previousState;
         return fail(500, 'Could not persist logout.');
       }
