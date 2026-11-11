@@ -57,7 +57,7 @@ Sign-in uses the Anthers `LoginPage` (magic link by email, plus optional Google)
 | --------------------- | ------------------------------------ | ------------------------------------------------------------------------- |
 | `/login`              | Signed-out users                     | Email or Google sign-in. Signed-in users are sent to `/`.                 |
 | `/select-org`         | Signed-in users                      | Choose an organization. With one organization it is picked automatically. |
-| `/`                   | Signed-in users with an organization | Home page.                                                                |
+| `/`                   | Signed-in users with an organization | Home page in the Anthers `AppLayout` shell (`HomePageLayout` + sample sections). |
 | `/auth/mock-callback` | Mock API only                        | Stands in for opening the magic link from the email.                      |
 
 Any other path redirects to `/`. If any API call returns 401, the session is cleared and the user goes back to `/login`.
