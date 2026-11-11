@@ -61,6 +61,7 @@ export const createMockAdapter = (
 ): AxiosAdapter => {
   const compiled = routes.map(compileRoute);
   const basePath = toBasePath(baseUrl);
+  const adapterStorage = new Map<symbol, unknown>();
 
   return async (config: InternalAxiosRequestConfig) => {
     const method = (config.method ?? 'get').toUpperCase() as MockMethod;
@@ -99,6 +100,7 @@ export const createMockAdapter = (
         route.paramNames.map((name, index) => [name, decodeURIComponent(match[index + 1])]),
       );
       const result = await route.handler({
+        adapterStorage,
         method,
         path,
         params,

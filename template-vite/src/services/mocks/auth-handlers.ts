@@ -32,6 +32,11 @@ interface MockAuthState {
   session: AuthSession | null;
 }
 
+interface MockAuthStorage {
+  memoryState: MockAuthState;
+  useMemoryState: boolean;
+}
+
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
@@ -64,43 +69,62 @@ const isMockAuthState = (value: unknown): value is MockAuthState => {
 };
 
 // sessionStorage stands in for the session cookie so a reload keeps you signed in, like the real API.
-let memoryState: MockAuthState = { pendingEmail: null, session: null };
-let useMemoryState = false;
+const AUTH_STORAGE_KEY = Symbol('mock-api:auth-state');
 
-const readState = (): MockAuthState => {
-  if (useMemoryState) return memoryState;
+const getAuthStorage = (adapterStorage: Map<symbol, unknown>): MockAuthStorage => {
+  const existing = adapterStorage.get(AUTH_STORAGE_KEY);
+  if (existing) return existing as MockAuthStorage;
 
-  try {
-    const raw = sessionStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      const state: unknown = JSON.parse(raw);
-      if (isMockAuthState(state)) {
-        memoryState = state;
-        return state;
-      }
-    }
-  } catch {
-    useMemoryState = true;
-    return memoryState;
-  }
-
-  memoryState = { pendingEmail: null, session: null };
-  return memoryState;
+  const storage: MockAuthStorage = { memoryState: { pendingEmail: null, session: null }, useMemoryState: false };
+  adapterStorage.set(AUTH_STORAGE_KEY, storage);
+  return storage;
 };
 
-const writeState = (state: MockAuthState) => {
-  if (useMemoryState) {
-    memoryState = state;
-    return;
+const readState = (adapterStorage: Map<symbol, unknown>): MockAuthState => {
+  const storage = getAuthStorage(adapterStorage);
+  if (storage.useMemoryState) return storage.memoryState;
+
+  let raw: string | null;
+  try {
+    raw = sessionStorage.getItem(STORAGE_KEY);
+  } catch {
+    storage.useMemoryState = true;
+    return storage.memoryState;
+  }
+
+  if (raw) {
+    try {
+      const state: unknown = JSON.parse(raw);
+      if (isMockAuthState(state)) {
+        storage.memoryState = state;
+        return state;
+      }
+    } catch {
+      // Ignore malformed stored data while keeping sessionStorage available for later writes.
+    }
+  }
+
+  storage.memoryState = { pendingEmail: null, session: null };
+  return storage.memoryState;
+};
+
+const writeState = (adapterStorage: Map<symbol, unknown>, state: MockAuthState): boolean => {
+  const storage = getAuthStorage(adapterStorage);
+  if (storage.useMemoryState) {
+    storage.memoryState = state;
+    return false;
   }
 
   try {
     sessionStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    memoryState = state;
   } catch {
-    useMemoryState = true;
-    memoryState = state;
+    storage.useMemoryState = true;
+    storage.memoryState = state;
+    return false;
   }
+
+  storage.memoryState = state;
+  return true;
 };
 
 const ok = (data: unknown, message?: string): MockResponse => ({ data: { status: true, message, data } });
@@ -134,39 +158,39 @@ export const authMockRoutes: MockRoute[] = [
   {
     method: 'POST',
     path: '/auth/sso',
-    handler: ({ body }) => {
+    handler: ({ body, adapterStorage }) => {
       const email = readEmail(body);
       if (email === MOCK_AUTH_EMAILS.signInError) {
         return fail(400, 'We could not find an account for this email.');
       }
-      writeState({ ...readState(), pendingEmail: email || DEFAULT_EMAIL });
+      writeState(adapterStorage, { ...readState(adapterStorage), pendingEmail: email || DEFAULT_EMAIL });
       return ok(null, 'Magic link sent.');
     },
   },
   {
     method: 'POST',
     path: '/auth/mock/verify',
-    handler: () => {
-      const state = readState();
+    handler: ({ adapterStorage }) => {
+      const state = readState(adapterStorage);
       const email = state.pendingEmail ?? DEFAULT_EMAIL;
       const session: AuthSession = { type: 'base', organizationId: null, user: toUser(email), permissions: [] };
-      writeState({ pendingEmail: null, session });
+      writeState(adapterStorage, { pendingEmail: null, session });
       return ok(session);
     },
   },
   {
     method: 'GET',
     path: '/auth/session',
-    handler: () => {
-      const { session } = readState();
+    handler: ({ adapterStorage }) => {
+      const { session } = readState(adapterStorage);
       return session ? ok(session) : unauthorized();
     },
   },
   {
     method: 'GET',
     path: '/auth/organization',
-    handler: () => {
-      const { session } = readState();
+    handler: ({ adapterStorage }) => {
+      const { session } = readState(adapterStorage);
       if (!session) return unauthorized();
       if (session.user.email === MOCK_AUTH_EMAILS.organizationsError) {
         return fail(500, 'Could not load organizations.');
@@ -177,8 +201,8 @@ export const authMockRoutes: MockRoute[] = [
   {
     method: 'POST',
     path: '/auth/organization/:organizationId',
-    handler: ({ params }) => {
-      const state = readState();
+    handler: ({ params, adapterStorage }) => {
+      const state = readState(adapterStorage);
       if (!state.session) return unauthorized();
       const organization = organizationsFor(state.session.user.email).find(({ id }) => id === params.organizationId);
       if (!organization) return fail(404, 'Organization not found.');
@@ -189,15 +213,20 @@ export const authMockRoutes: MockRoute[] = [
         organizationId: organization.id,
         permissions: PERMISSIONS_BY_ROLE[organization.role] ?? [],
       };
-      writeState({ ...state, session });
+      writeState(adapterStorage, { ...state, session });
       return ok(session);
     },
   },
   {
     method: 'POST',
     path: '/auth/logout',
-    handler: () => {
-      writeState({ pendingEmail: null, session: null });
+    handler: ({ adapterStorage }) => {
+      const previousState = readState(adapterStorage);
+      const storage = getAuthStorage(adapterStorage);
+      if (!writeState(adapterStorage, { pendingEmail: null, session: null })) {
+        storage.memoryState = previousState;
+        return fail(500, 'Could not persist logout.');
+      }
       return ok(null);
     },
   },
