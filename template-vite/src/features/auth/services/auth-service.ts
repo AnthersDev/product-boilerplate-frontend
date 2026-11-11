@@ -72,8 +72,10 @@ export const sessionQueryOptions = () =>
   queryOptions({
     queryKey: authQueryKeys.session(),
     queryFn: ({ signal }) => fetchSession(signal),
-    // Changes only through sign-in, organization selection, sign-out or a 401, which update it directly.
-    staleTime: Infinity,
+    // Revalidate so sign-outs and cookie expiration in another tab eventually reach the route guards.
+    staleTime: 60_000,
+    refetchInterval: 60_000,
+    refetchOnWindowFocus: true,
   });
 
 export const organizationsQueryOptions = () =>

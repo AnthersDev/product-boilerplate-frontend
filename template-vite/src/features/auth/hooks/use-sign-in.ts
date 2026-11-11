@@ -1,5 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
+import { ApiError } from '@/services/api';
+
 import { authQueryKeys, completeMockSignIn, signOut } from '../services';
 
 export const useCompleteMockSignIn = () => {
@@ -10,14 +12,18 @@ export const useCompleteMockSignIn = () => {
   });
 };
 
-/** Clears cached data even if the request fails, since the cookies may already be gone. */
 export const useSignOut = () => {
   const queryClient = useQueryClient();
+  const clearSession = () => {
+    queryClient.clear();
+    queryClient.setQueryData(authQueryKeys.session(), null);
+  };
+
   return useMutation({
     mutationFn: signOut,
-    onSettled: () => {
-      queryClient.clear();
-      queryClient.setQueryData(authQueryKeys.session(), null);
+    onSuccess: clearSession,
+    onError: (error) => {
+      if (error instanceof ApiError && error.status === 401) clearSession();
     },
   });
 };

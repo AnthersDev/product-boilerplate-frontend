@@ -32,11 +32,45 @@ interface MockAuthState {
   session: AuthSession | null;
 }
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+
+const isNullableString = (value: unknown): value is string | null => value === null || typeof value === 'string';
+
+const isAuthSession = (value: unknown): value is AuthSession => {
+  if (
+    !isRecord(value) ||
+    (value.type !== 'base' && value.type !== 'organization') ||
+    !isNullableString(value.organizationId) ||
+    !Array.isArray(value.permissions) ||
+    !value.permissions.every((permission) => typeof permission === 'string') ||
+    !isRecord(value.user)
+  ) {
+    return false;
+  }
+
+  const { user } = value;
+  return (
+    typeof user.id === 'string' &&
+    typeof user.email === 'string' &&
+    isNullableString(user.firstName) &&
+    isNullableString(user.lastName)
+  );
+};
+
+const isMockAuthState = (value: unknown): value is MockAuthState => {
+  if (!isRecord(value) || !isNullableString(value.pendingEmail)) return false;
+  return value.session === null || isAuthSession(value.session);
+};
+
 // sessionStorage stands in for the session cookie so a reload keeps you signed in, like the real API.
 const readState = (): MockAuthState => {
   try {
     const raw = sessionStorage.getItem(STORAGE_KEY);
-    if (raw) return JSON.parse(raw) as MockAuthState;
+    if (raw) {
+      const state: unknown = JSON.parse(raw);
+      if (isMockAuthState(state)) return state;
+    }
   } catch {
     // Fall through to a signed-out state.
   }

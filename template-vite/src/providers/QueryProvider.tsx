@@ -6,8 +6,11 @@ import { createQueryClient } from '@/libs/query-client';
 
 const createAppQueryClient = () =>
   createQueryClient({
-    // Route guards watch the session query, so clearing it sends the user to /login.
-    onUnauthorized: (queryClient) => queryClient.setQueryData(authQueryKeys.session(), null),
+    // Drop account-specific data and update route guards when a request confirms the session expired.
+    onUnauthorized: (queryClient) => {
+      queryClient.removeQueries({ queryKey: authQueryKeys.organizations() });
+      queryClient.setQueryData(authQueryKeys.session(), null);
+    },
   });
 
 export const QueryProvider = ({ children }: PropsWithChildren) => {
