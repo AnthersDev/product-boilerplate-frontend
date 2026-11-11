@@ -64,24 +64,42 @@ const isMockAuthState = (value: unknown): value is MockAuthState => {
 };
 
 // sessionStorage stands in for the session cookie so a reload keeps you signed in, like the real API.
+let memoryState: MockAuthState = { pendingEmail: null, session: null };
+let useMemoryState = false;
+
 const readState = (): MockAuthState => {
+  if (useMemoryState) return memoryState;
+
   try {
     const raw = sessionStorage.getItem(STORAGE_KEY);
     if (raw) {
       const state: unknown = JSON.parse(raw);
-      if (isMockAuthState(state)) return state;
+      if (isMockAuthState(state)) {
+        memoryState = state;
+        return state;
+      }
     }
   } catch {
-    // Fall through to a signed-out state.
+    useMemoryState = true;
+    return memoryState;
   }
-  return { pendingEmail: null, session: null };
+
+  memoryState = { pendingEmail: null, session: null };
+  return memoryState;
 };
 
 const writeState = (state: MockAuthState) => {
+  if (useMemoryState) {
+    memoryState = state;
+    return;
+  }
+
   try {
     sessionStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    memoryState = state;
   } catch {
-    // Storage can be unavailable (private mode); the mock session then lasts until reload.
+    useMemoryState = true;
+    memoryState = state;
   }
 };
 

@@ -7,8 +7,9 @@ import { createQueryClient } from '@/libs/query-client';
 const createAppQueryClient = () =>
   createQueryClient({
     // Drop account-specific data and update route guards when a request confirms the session expired.
-    onUnauthorized: (queryClient) => {
+    onUnauthorized: async (queryClient) => {
       clearOrganizationCache(queryClient);
+      await queryClient.cancelQueries({ queryKey: authQueryKeys.session() });
       queryClient.setQueryData(authQueryKeys.session(), null);
     },
   });

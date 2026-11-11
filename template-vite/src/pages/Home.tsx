@@ -5,6 +5,7 @@ import { Button, HeadingWithDescription } from '@marmeto_engineering/anthers-com
 
 import { useOrganizations, useSession, useSignOut } from '@/features/auth';
 import { env } from '@/libs/env';
+import { ApiError } from '@/services/api';
 import { healthQueryOptions } from '@/services/health-service';
 
 /** Placeholder until the dashboard shell replaces it. */
@@ -14,6 +15,10 @@ const Home = () => {
   const { data: organizations } = useOrganizations();
   const health = useQuery(healthQueryOptions());
   const signOut = useSignOut();
+  const signOutError =
+    signOut.isError && !(signOut.error instanceof ApiError && signOut.error.status === 401)
+      ? signOut.error.message
+      : null;
 
   const organization = organizations?.find(({ id }) => id === session?.organizationId);
 
@@ -51,6 +56,11 @@ const Home = () => {
           Sign out
         </Button>
       </div>
+      {signOutError && (
+        <p role="alert" className="text-sm text-red-600">
+          {signOutError}
+        </p>
+      )}
     </main>
   );
 };

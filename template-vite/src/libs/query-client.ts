@@ -17,12 +17,12 @@ const shouldRetry = (failureCount: number, error: ApiError) => {
 
 interface CreateQueryClientOptions {
   /** Called when any query or mutation fails with 401, e.g. because the session cookie expired. */
-  onUnauthorized?: (queryClient: QueryClient) => void;
+  onUnauthorized?: (queryClient: QueryClient) => void | Promise<void>;
 }
 
 export const createQueryClient = ({ onUnauthorized }: CreateQueryClientOptions = {}) => {
-  const handleError = (error: unknown) => {
-    if (error instanceof ApiError && error.status === 401) onUnauthorized?.(queryClient);
+  const handleError = async (error: unknown) => {
+    if (error instanceof ApiError && error.status === 401) await onUnauthorized?.(queryClient);
   };
 
   const queryClient: QueryClient = new QueryClient({

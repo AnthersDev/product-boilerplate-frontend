@@ -8,7 +8,10 @@ export const useCompleteMockSignIn = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: completeMockSignIn,
-    onSuccess: (session) => queryClient.setQueryData(authQueryKeys.session(), session),
+    onSuccess: async (session) => {
+      await queryClient.cancelQueries({ queryKey: authQueryKeys.session() });
+      queryClient.setQueryData(authQueryKeys.session(), session);
+    },
   });
 };
 

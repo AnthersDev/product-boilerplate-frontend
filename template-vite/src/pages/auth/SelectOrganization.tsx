@@ -5,6 +5,7 @@ import { Button, SelectOrganizationPage } from '@marmeto_engineering/anthers-com
 import { StatusScreen } from '@/components/StatusScreen';
 import { brand } from '@/config';
 import { useOrganizations, useSelectOrganization, useSignOut } from '@/features/auth';
+import { ApiError } from '@/services/api';
 
 const SelectOrganization = () => {
   const navigate = useNavigate();
@@ -12,26 +13,38 @@ const SelectOrganization = () => {
   const selection = useSelectOrganization();
   const signOut = useSignOut();
   const hasAutoSelectedRef = useRef(false);
+  const signOutError =
+    signOut.isError && !(signOut.error instanceof ApiError && signOut.error.status === 401)
+      ? signOut.error.message
+      : null;
 
   const { mutate: selectOrganization, isPending: isSelecting, isSuccess: hasSelected } = selection;
 
   const onOrganizationSelect = useCallback(
     (organizationId: string) => {
-      if (isSelecting) return;
+      if (isSelecting || signOut.isPending) return;
       selectOrganization(organizationId, { onSuccess: () => navigate('/', { replace: true }) });
     },
-    [isSelecting, navigate, selectOrganization],
+    [isSelecting, navigate, selectOrganization, signOut.isPending],
   );
 
   // With a single organization there is nothing to choose. The ref keeps StrictMode from selecting twice.
   useEffect(() => {
-    if (organizations?.length !== 1 || hasAutoSelectedRef.current) return;
+    if (signOut.isPending || signOutError || organizations?.length !== 1 || hasAutoSelectedRef.current) return;
     hasAutoSelectedRef.current = true;
     onOrganizationSelect(organizations[0].id);
-  }, [onOrganizationSelect, organizations]);
+  }, [onOrganizationSelect, organizations, signOut.isPending, signOutError]);
 
   const signOutButton = (
-    <Button variant="outline" loading={signOut.isPending} onClick={() => signOut.mutate()}>
+    <Button
+      variant="outline"
+      loading={signOut.isPending}
+      disabled={isSelecting}
+      onClick={() => {
+        if (isSelecting) return;
+        signOut.mutate(undefined, { onError: () => (hasAutoSelectedRef.current = false) });
+      }}
+    >
       Use a different account
     </Button>
   );
@@ -44,6 +57,7 @@ const SelectOrganization = () => {
         description={error.message}
         actions={
           <>
+            {signOutError && <p className="w-full text-sm text-red-600">{signOutError}</p>}
             <Button loading={isRefetching} onClick={() => refetch()}>
               Try again
             </Button>
@@ -54,7 +68,7 @@ const SelectOrganization = () => {
     );
   }
 
-  const isAutoSelecting = organizations?.length === 1 && !selection.isError;
+  const isAutoSelecting = organizations?.length === 1 && !selection.isError && !signOutError;
   if (isPending || isSelecting || hasSelected || isAutoSelecting) {
     return <SelectOrganizationPage.Skeleton />;
   }
@@ -64,7 +78,16 @@ const SelectOrganization = () => {
       <StatusScreen
         title="You're not part of any organization yet"
         description="Ask an admin to invite you, or sign in with a different email."
-        actions={signOutButton}
+        actions={
+          <>
+            {signOutError && (
+              <p role="alert" className="w-full text-sm text-red-600">
+                {signOutError}
+              </p>
+            )}
+            {signOutButton}
+          </>
+        }
       />
     );
   }
@@ -74,6 +97,11 @@ const SelectOrganization = () => {
       {selection.isError && (
         <p role="alert" className="absolute inset-x-0 top-6 z-10 px-6 text-center text-sm text-red-600">
           {selection.error.message}
+        </p>
+      )}
+      {signOutError && (
+        <p role="alert" className="absolute inset-x-0 top-16 z-10 px-6 text-center text-sm text-red-600">
+          {signOutError}
         </p>
       )}
       <SelectOrganizationPage
