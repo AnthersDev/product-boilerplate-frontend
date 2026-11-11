@@ -1,4 +1,4 @@
-import { queryOptions } from '@tanstack/react-query';
+import { queryOptions, type QueryClient } from '@tanstack/react-query';
 
 import { env } from '@/libs/env';
 import { ApiError, httpClient, type ApiEnvelope } from '@/services/api';
@@ -37,13 +37,19 @@ export const authQueryKeys = {
   organizations: () => [...authQueryKeys.all, 'organizations'] as const,
 };
 
+export const clearOrganizationCache = (queryClient: QueryClient) =>
+  queryClient.removeQueries({ queryKey: authQueryKeys.organizations() });
+
 /** Resolves to `null` when signed out (401) instead of throwing. */
-export const fetchSession = async (signal?: AbortSignal): Promise<AuthSession | null> => {
+export const fetchSession = async (queryClient: QueryClient, signal?: AbortSignal): Promise<AuthSession | null> => {
   try {
     const { data } = await httpClient.get<ApiEnvelope<AuthSession>>(AUTH_ENDPOINTS.session, { signal });
     return data.data;
   } catch (error) {
-    if (error instanceof ApiError && error.status === 401) return null;
+    if (error instanceof ApiError && error.status === 401) {
+      clearOrganizationCache(queryClient);
+      return null;
+    }
     throw error;
   }
 };
@@ -71,7 +77,7 @@ export const completeMockSignIn = async (): Promise<AuthSession> => {
 export const sessionQueryOptions = () =>
   queryOptions({
     queryKey: authQueryKeys.session(),
-    queryFn: ({ signal }) => fetchSession(signal),
+    queryFn: ({ signal, client }) => fetchSession(client, signal),
     // Revalidate so sign-outs and cookie expiration in another tab eventually reach the route guards.
     staleTime: 60_000,
     refetchInterval: 60_000,
