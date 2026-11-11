@@ -57,7 +57,7 @@ const SelectOrganization = () => {
         description={error.message}
         actions={
           <>
-            {signOutError && <p className="w-full text-sm text-red-600">{signOutError}</p>}
+            {signOutError && <p className="text-small w-full text-red-600">{signOutError}</p>}
             <Button loading={isRefetching} onClick={() => refetch()}>
               Try again
             </Button>
@@ -81,7 +81,7 @@ const SelectOrganization = () => {
         actions={
           <>
             {signOutError && (
-              <p role="alert" className="w-full text-sm text-red-600">
+              <p role="alert" className="text-small w-full text-red-600">
                 {signOutError}
               </p>
             )}
@@ -95,13 +95,8 @@ const SelectOrganization = () => {
   return (
     <div className="relative min-h-screen">
       {selection.isError && (
-        <p role="alert" className="absolute inset-x-0 top-6 z-10 px-6 text-center text-sm text-red-600">
+        <p role="alert" className="text-small absolute inset-x-0 top-6 z-10 px-6 text-center text-red-600">
           {selection.error.message}
-        </p>
-      )}
-      {signOutError && (
-        <p role="alert" className="absolute inset-x-0 top-16 z-10 px-6 text-center text-sm text-red-600">
-          {signOutError}
         </p>
       )}
       <SelectOrganizationPage
@@ -109,7 +104,6 @@ const SelectOrganization = () => {
         organizations={organizations}
         onOrganizationSelect={onOrganizationSelect}
       />
-      <div className="absolute inset-x-0 bottom-8 flex justify-center">{signOutButton}</div>
     </div>
   );
 };

@@ -57,7 +57,7 @@ Sign-in uses the Anthers `LoginPage` (magic link by email, plus optional Google)
 | --------------------- | ------------------------------------ | ------------------------------------------------------------------------- |
 | `/login`              | Signed-out users                     | Email or Google sign-in. Signed-in users are sent to `/`.                 |
 | `/select-org`         | Signed-in users                      | Choose an organization. With one organization it is picked automatically. |
-| `/`                   | Signed-in users with an organization | Home page.                                                                |
+| `/`                   | Signed-in users with an organization | Home page in the Anthers `AppLayout` shell (`HomePageLayout` + sample sections). |
 | `/auth/mock-callback` | Mock API only                        | Stands in for opening the magic link from the email.                      |
 
 Any other path redirects to `/`. If any API call returns 401, the session is cleared and the user goes back to `/login`.
@@ -104,13 +104,13 @@ Edit `src/config/brand.ts` to set your product's name, logo, login background an
 
 ## Git hooks
 
-Husky runs these checks automatically, so you don't need to run them by hand:
+Husky runs these checks automatically, so you don't need to run them by hand. ESLint also runs in the editor on save (see `.vscode/settings.json`), so problems are fixed before you `git add`.
 
-| Hook         | Runs                                                                                                  | Takes               |
-| ------------ | ----------------------------------------------------------------------------------------------------- | ------------------- |
-| `pre-commit` | `lint-staged` (ESLint fix and Prettier on staged files), then `npm run lint` and `npm run type-check` | a few seconds       |
-| `pre-push`   | `npm run build`                                                                                       | about 15–30 seconds |
-| `commit-msg` | `commitlint` (conventional commit messages)                                                           | instant             |
+| Hook | Runs | Takes |
+| --- | --- | --- |
+| `pre-commit` | `lint-staged` (ESLint fix and Prettier on the files you staged with `git add`), then `npm run lint` and `npm run type-check` | a few seconds |
+| `pre-push` | `npm run build` | about 15–30 seconds |
+| `commit-msg` | `commitlint` (conventional commit messages) | instant |
 
 If a hook fails, the commit or push stops and the error is printed. Fix it and try again. In an emergency you can skip hooks with `--no-verify`. CI runs lint and type-check, but not the local pre-push build, commitlint, or staged-file formatting.
 
