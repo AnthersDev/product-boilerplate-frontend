@@ -5,6 +5,7 @@ import { env } from '@/libs/env';
 
 import { GuestOnly, RequireSession } from './RequireSession';
 
+const AppShell = lazy(() => import('@/layouts/AppShell'));
 const Home = lazy(() => import('@/pages/Home'));
 const Login = lazy(() => import('@/pages/auth/Login'));
 const MockSignIn = lazy(() => import('@/pages/auth/MockSignIn'));
@@ -23,7 +24,9 @@ const AppRoutes = () => (
     </Route>
 
     <Route element={<RequireSession requireOrganization />}>
-      <Route path="/" element={<Home />} />
+      <Route element={<AppShell />}>
+        <Route path="/" element={<Home />} />
+      </Route>
     </Route>
 
     <Route path="*" element={<Navigate to="/" replace />} />
