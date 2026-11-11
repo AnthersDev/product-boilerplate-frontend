@@ -49,11 +49,11 @@ npm run dev
 
 ## Git hooks
 
-Husky runs these checks automatically, so you don't need to run them by hand:
+Husky runs these checks automatically, so you don't need to run them by hand. ESLint also runs in the editor on save (see `.vscode/settings.json`), so problems are fixed before you `git add`.
 
 | Hook | Runs | Takes |
 | --- | --- | --- |
-| `pre-commit` | `lint-staged` (ESLint fix and Prettier on staged files), then `npm run lint` and `npm run type-check` | a few seconds |
+| `pre-commit` | `lint-staged` (ESLint fix and Prettier on the files you staged with `git add`), then `npm run lint` and `npm run type-check` | a few seconds |
 | `pre-push` | `npm run build` | about 15–30 seconds |
 | `commit-msg` | `commitlint` (conventional commit messages) | instant |
 

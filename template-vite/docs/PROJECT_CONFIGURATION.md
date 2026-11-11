@@ -8,6 +8,10 @@ You should always configure and use the following tools:
 
 ESLint is a linting tool for JavaScript. By providing specific configuration defined in the`eslint.config.mjs` file it prevents developers from making silly mistakes in their code and enforces consistency in the codebase.
 
+The rules follow the same conventions as [Anthers-component](https://github.com/AnthersDev/Anthers-component/blob/main/eslint.config.js) where they apply to product apps: boolean prefixes (`is` / `has` / `should`), JSX handlers starting with `on`, hooks under `src/**/hooks/**` starting with `use`, PascalCase components, Lucide `strokeWidth={1.75}`, and Anthers text-size classes (`text-label`, `text-small`, `text-body`, `text-headline`, `text-mono`). Library-only rules such as `import/no-default-export` are not enabled, because pages use default exports for `React.lazy`.
+
+Install the recommended VS Code / Cursor extensions (prompted from `.vscode/extensions.json`). With `.vscode/settings.json`, ESLint fixes and Prettier run on save, so issues are cleaned up before you `git add`. On commit, Husky runs the same checks again on the staged files via `lint-staged`.
+
 [ESLint Configuration](../eslint.config.mjs)
 
 ## Prettier
