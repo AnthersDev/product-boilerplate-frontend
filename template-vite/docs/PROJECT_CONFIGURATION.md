@@ -24,6 +24,12 @@ ESLint is great for catching some of the bugs related to the language, but since
 
 Husky is a tool for executing git hooks. Use Husky to run your code validations before every commit, thus making sure the code is in the best shape possible at any point of time and no faulty commits get into the repo. It can run linting, code formatting and type checking, etc. before it allows pushing the code. You can check how to configure it [here](https://typicode.github.io/husky/#/?id=usage).
 
+This project's hooks live in `.husky/`:
+
+- `pre-commit`: `lint-staged` (ESLint fix and Prettier on staged files, configured in `.lintstagedrc.json`), then `npm run lint` and `npm run type-check`.
+- `pre-push`: `npm run build`.
+- `commit-msg`: `commitlint`.
+
 ## Absolute imports
 
 Absolute imports should always be configured and used because it makes it easier to move files around and avoid messy import paths such as `../../../Component`. Wherever you move the file, all the imports will remain intact. Here is how to configure it:

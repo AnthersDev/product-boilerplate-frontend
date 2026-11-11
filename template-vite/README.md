@@ -47,6 +47,18 @@ npm install
 npm run dev
 ```
 
+## Git hooks
+
+Husky runs these checks automatically, so you don't need to run them by hand:
+
+| Hook | Runs | Takes |
+| --- | --- | --- |
+| `pre-commit` | `lint-staged` (ESLint fix and Prettier on staged files), then `npm run lint` and `npm run type-check` | a few seconds |
+| `pre-push` | `npm run build` | about 15–30 seconds |
+| `commit-msg` | `commitlint` (conventional commit messages) | instant |
+
+If a hook fails, the commit or push stops and the error is printed. Fix it and try again. In an emergency you can skip hooks with `--no-verify`. CI runs lint and type-check, but not the local pre-push build, commitlint, or staged-file formatting.
+
 ## Development
 
 While developing, you will probably rely mostly on `npm run start`; however, there are additional scripts at your disposal:
