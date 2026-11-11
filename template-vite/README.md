@@ -57,7 +57,7 @@ Husky runs these checks automatically, so you don't need to run them by hand:
 | `pre-push` | `npm run build` | about 15–30 seconds |
 | `commit-msg` | `commitlint` (conventional commit messages) | instant |
 
-If a hook fails, the commit or push stops and the error is printed. Fix it and try again. In an emergency you can skip hooks with `--no-verify`, but CI runs the same checks.
+If a hook fails, the commit or push stops and the error is printed. Fix it and try again. In an emergency you can skip hooks with `--no-verify`. CI runs lint and type-check, but not the local pre-push build, commitlint, or staged-file formatting.
 
 ## Development
 
