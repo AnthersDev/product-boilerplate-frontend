@@ -99,6 +99,11 @@ const AppShell = () => {
       secondarySidebarMenuItems={secondarySidebarMenuItems}
       sidebarFooter={<></>}
     >
+      {signOut.isError && (
+        <p role="alert" className="text-small mx-auto mt-4 max-w-2xl px-6 text-red-600">
+          {signOut.error.message}
+        </p>
+      )}
       <Outlet />
     </AppLayout>
   );

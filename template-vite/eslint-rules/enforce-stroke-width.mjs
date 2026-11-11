@@ -19,7 +19,7 @@ export default {
         if (node.source.value === "lucide-react") {
           node.specifiers.forEach(specifier => {
             if (specifier.type === "ImportSpecifier") {
-              lucideImports.add(specifier.imported.name);
+              lucideImports.add(specifier.local.name);
             }
           });
         }
@@ -47,9 +47,9 @@ export default {
               },
             });
           } else if (
-            strokeWidthProp.value.type === "JSXExpressionContainer" &&
-            strokeWidthProp.value.expression.type === "Literal" &&
-            strokeWidthProp.value.expression.value !== 1.75
+            strokeWidthProp.value?.type === "JSXExpressionContainer" &&
+            (strokeWidthProp.value.expression.type !== "Literal" ||
+              strokeWidthProp.value.expression.value !== 1.75)
           ) {
             context.report({
               node: strokeWidthProp,
@@ -62,7 +62,7 @@ export default {
               },
             });
           } else if (
-            strokeWidthProp.value.type === "Literal" &&
+            strokeWidthProp.value?.type === "Literal" &&
             strokeWidthProp.value.value !== "1.75"
           ) {
             context.report({

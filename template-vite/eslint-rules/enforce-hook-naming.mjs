@@ -16,7 +16,7 @@ export default {
   },
   create(context) {
     const filename = context.getFilename();
-    const isInAnyHooksFolder = /[\\\/]src[\\\/].*[\\\/]hooks[\\\/]/.test(
+    const isInAnyHooksFolder = /[\\\/]src[\\\/](?:.*[\\\/])?hooks[\\\/]/.test(
       filename
     );
     const isTestOrStory = /\.(cy|stories)\.[tj]sx?$/.test(filename);
@@ -34,7 +34,11 @@ export default {
     }
 
     function isTopLevel(node) {
-      return node.parent && node.parent.type === "Program";
+      return (
+        node.parent?.type === "Program" ||
+        (node.parent?.type === "ExportNamedDeclaration" &&
+          node.parent.parent?.type === "Program")
+      );
     }
 
     return {
