@@ -1,0 +1,34 @@
+/*
+ * Product theme.
+ *
+ * Anthers components read these CSS variables, so overriding them here restyles the components.
+ * These rules are unlayered, so they win over the layered defaults in the Anthers stylesheet
+ * regardless of import order.
+ *
+ * Uncomment what you need and change the values. The commented values are the Anthers defaults.
+ */
+:root {
+  /*
+   * Brand colour scale: focus rings, focused input borders, selected and highlighted states.
+   * Keep the whole scale in one hue so tints and shades still match.
+   */
+  /* --color-brand-50: oklch(96% 0.03 250); */
+  /* --color-brand-100: oklch(93% 0.05 250); */
+  /* --color-brand-200: oklch(88% 0.08 250); */
+  /* --color-brand-300: oklch(82% 0.12 250); */
+  /* --color-brand-500: oklch(60% 0.18 250); */
+  /* --color-brand-600: oklch(50% 0.15 250); */
+  /* --color-brand-700: oklch(45% 0.12 250); */
+  /* --color-brand-800: oklch(40% 0.1 250); */
+  /* --color-brand-900: oklch(35% 0.08 250); */
+
+  /*
+   * Font used across the app. If you change it, also load the font,
+   * e.g. with an @font-face rule in src/index.css.
+   */
+  /* --font-sans: 'IBM Plex Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; */
+
+  /* Corner radius. Buttons, inputs and cards use --radius-xl; some smaller controls use --radius-lg. */
+  /* --radius-lg: 0.5rem; */
+  /* --radius-xl: 0.75rem; */
+}

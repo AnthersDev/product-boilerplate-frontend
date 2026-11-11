@@ -5,6 +5,9 @@
  */
 @import '@marmeto_engineering/anthers-components/styles.css';
 
+/* Product theme overrides. Import it here, not from JS, so it lands in the same stylesheet as Anthers. */
+@import './theme/theme.css';
+
 /*
  * Anthers emits one file per module under dist/esm. Tailwind v4 production
  * scans skip node_modules unless @source lists them.
