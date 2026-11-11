@@ -31,7 +31,7 @@ const Home = () => {
   return (
     <main className="mx-auto flex min-h-screen max-w-2xl flex-col justify-center gap-6 p-6">
       {env.useMockApi && (
-        <p role="status" className="rounded-md border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-900">
+        <p role="status" className="text-small rounded-md border border-amber-200 bg-amber-50 px-4 py-2 text-amber-900">
           Mock API mode is active. To use your configured API, set VITE_USE_MOCK_API=false in .env.local (and set
           VITE_API_BASE_URL if your API is not at /api), then restart the dev server.
         </p>
@@ -43,7 +43,7 @@ const Home = () => {
         description={`Signed in as ${session?.user.email ?? ''}${organization ? ` in ${organization.name}` : ''}.`}
       />
 
-      <p className="text-sm text-gray-700">{healthText}</p>
+      <p className="text-small text-gray-700">{healthText}</p>
 
       <div className="flex flex-wrap gap-3">
         <Button variant="outline" loading={health.isFetching} onClick={() => health.refetch()}>
@@ -57,7 +57,7 @@ const Home = () => {
         </Button>
       </div>
       {signOutError && (
-        <p role="alert" className="text-sm text-red-600">
+        <p role="alert" className="text-small text-red-600">
           {signOutError}
         </p>
       )}

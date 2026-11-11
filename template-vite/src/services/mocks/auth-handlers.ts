@@ -231,8 +231,8 @@ export const authMockRoutes: MockRoute[] = [
     handler: ({ adapterStorage }) => {
       const previousState = readState(adapterStorage);
       const storage = getAuthStorage(adapterStorage);
-      const sessionWasPersisted = storage.sessionPersisted;
-      if (!writeState(adapterStorage, { pendingEmail: null, session: null }) && sessionWasPersisted) {
+      const isSessionPersisted = storage.sessionPersisted;
+      if (!writeState(adapterStorage, { pendingEmail: null, session: null }) && isSessionPersisted) {
         storage.memoryState = previousState;
         return fail(500, 'Could not persist logout.');
       }

@@ -18,7 +18,7 @@ const googleAppId = env.useMockApi ? (env.ssoAppId ?? 'mock-app') : env.ssoAppId
 const MockSignInHint = () => (
   <div
     role="note"
-    className="fixed inset-x-0 top-0 z-50 border-b border-amber-200 bg-amber-50 px-4 py-2 text-center text-sm text-amber-900"
+    className="text-small fixed inset-x-0 top-0 z-50 border-b border-amber-200 bg-amber-50 px-4 py-2 text-center text-amber-900"
   >
     Mock API: Google signs you in directly. For email, press continue, then{' '}
     <Link to={MOCK_CALLBACK_PATH} className="font-semibold underline">
@@ -36,7 +36,7 @@ const Login = () => {
   useState(clearAnthersAuthToken);
 
   // LoginPage sends Google sign-in to the real identity service, which has no session for the mock API.
-  const interceptMockGoogleSignIn = (event: MouseEvent<HTMLDivElement>) => {
+  const onMockGoogleSignInCapture = (event: MouseEvent<HTMLDivElement>) => {
     if (!env.useMockApi) return;
     const button = (event.target as Element).closest('button');
     if (!button?.textContent?.includes('Google')) return;
@@ -46,7 +46,7 @@ const Login = () => {
   };
 
   return (
-    <div onClickCapture={interceptMockGoogleSignIn}>
+    <div onClickCapture={onMockGoogleSignInCapture}>
       {env.useMockApi && <MockSignInHint />}
       <LoginPage
         backendAuthEndpoint={signInEndpoint}
