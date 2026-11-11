@@ -1,4 +1,4 @@
-import {
+import axios, {
   AxiosError,
   AxiosHeaders,
   type AxiosAdapter,
@@ -38,25 +38,35 @@ const parseBody = (data: unknown): unknown => {
   }
 };
 
-const buildQuery = (url: URL, params: unknown) => {
-  const query = new URLSearchParams(url.search);
-  if (params && typeof params === 'object') {
-    Object.entries(params).forEach(([key, value]) => {
-      if (value !== undefined && value !== null) query.append(key, String(value));
-    });
-  }
-  return query;
+const MOCK_ORIGIN = 'http://mock.local';
+
+const toBasePath = (baseUrl: string) => new URL(baseUrl, `${MOCK_ORIGIN}/`).pathname.replace(/\/+$/, '');
+
+const stripBasePath = (pathname: string, basePath: string) => {
+  if (!basePath || (pathname !== basePath && !pathname.startsWith(`${basePath}/`))) return pathname;
+  return pathname.slice(basePath.length) || '/';
 };
 
 const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
-export const createMockAdapter = (routes: MockRoute[], { delayMs = 0 } = {}): AxiosAdapter => {
+interface MockAdapterOptions {
+  delayMs?: number;
+  /** API base URL. Its path is removed before matching, so routes are written relative to it. */
+  baseUrl?: string;
+}
+
+export const createMockAdapter = (
+  routes: MockRoute[],
+  { delayMs = 0, baseUrl = '' }: MockAdapterOptions = {},
+): AxiosAdapter => {
   const compiled = routes.map(compileRoute);
+  const basePath = toBasePath(baseUrl);
 
   return async (config: InternalAxiosRequestConfig) => {
     const method = (config.method ?? 'get').toUpperCase() as MockMethod;
-    const url = new URL(config.url ?? '/', 'http://mock.local');
-    const path = url.pathname;
+    // getUri joins baseURL and url and adds params, the same way a real request would be sent.
+    const url = new URL(axios.getUri(config), `${MOCK_ORIGIN}/`);
+    const path = stripBasePath(url.pathname, basePath);
 
     if (delayMs > 0) await wait(delayMs);
 
@@ -92,7 +102,7 @@ export const createMockAdapter = (routes: MockRoute[], { delayMs = 0 } = {}): Ax
         method,
         path,
         params,
-        query: buildQuery(url, config.params),
+        query: url.searchParams,
         body: parseBody(config.data),
       });
       return respond(result.status ?? 200, result.data ?? null);

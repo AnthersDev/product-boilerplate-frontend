@@ -1,3 +1,4 @@
+import { authMockRoutes } from './auth-handlers';
 import type { MockRoute } from './types';
 
 export const mockRoutes: MockRoute[] = [
@@ -6,4 +7,5 @@ export const mockRoutes: MockRoute[] = [
     path: '/health',
     handler: () => ({ data: { status: 'ok', timestamp: new Date().toISOString() } }),
   },
+  ...authMockRoutes,
 ];

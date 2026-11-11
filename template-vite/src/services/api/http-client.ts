@@ -9,6 +9,8 @@ export const createHttpClient = (): AxiosInstance => {
   const client = axios.create({
     baseURL: env.apiBaseUrl,
     timeout: env.apiTimeoutMs,
+    // The session lives in HttpOnly cookies, which the browser only sends cross-origin with credentials.
+    withCredentials: true,
     headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
     adapter: env.useMockApi ? mockAdapter : undefined,
   });

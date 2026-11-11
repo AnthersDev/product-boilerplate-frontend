@@ -5,6 +5,7 @@ interface ImportMetaEnv {
   readonly VITE_API_TIMEOUT_MS?: string;
   readonly VITE_USE_MOCK_API?: string;
   readonly VITE_MOCK_API_DELAY_MS?: string;
+  readonly VITE_SSO_APP_ID?: string;
 }
 
 interface ImportMeta {
