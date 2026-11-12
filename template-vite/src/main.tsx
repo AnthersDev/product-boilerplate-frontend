@@ -6,18 +6,23 @@ import '@/i18n';
 import reportWebVitals from '@/report-web-vitals';
 import App from '@/App';
 import { env } from '@/libs/env';
-import { installMockApi } from '@/services/mocks';
-
-if (env.useMockApi) installMockApi();
 
 const root = createRoot(document.getElementById('root') as HTMLElement);
-root.render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>,
-);
 
-// If you want to start measuring performance in your app, pass a function
-// to log results (for example: reportWebVitals(console.log))
-// or send to an analytics endpoint. Learn more: https://bit.ly/CRA-vitals
-reportWebVitals(console.log);
+const start = async () => {
+  // Dynamic import keeps mock handlers out of production builds when mocks are off.
+  if (env.useMockApi) {
+    const { installMockApi } = await import('@/services/mocks');
+    installMockApi();
+  }
+
+  root.render(
+    <React.StrictMode>
+      <App />
+    </React.StrictMode>,
+  );
+
+  reportWebVitals(console.log);
+};
+
+void start();
