@@ -2,6 +2,7 @@ import React, { useState, type PropsWithChildren } from 'react';
 import { QueryClientProvider } from '@tanstack/react-query';
 
 import { authQueryKeys, clearOrganizationCache } from '@/features/auth';
+import { clearHomeCache } from '@/features/home/services/home-service';
 import { createQueryClient } from '@/libs/query-client';
 
 const createAppQueryClient = () =>
@@ -9,6 +10,7 @@ const createAppQueryClient = () =>
     // Drop account-specific data and update route guards when a request confirms the session expired.
     onUnauthorized: async (queryClient) => {
       clearOrganizationCache(queryClient);
+      clearHomeCache(queryClient);
       await queryClient.cancelQueries({ queryKey: authQueryKeys.session() });
       queryClient.setQueryData(authQueryKeys.session(), null);
     },

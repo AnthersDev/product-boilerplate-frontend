@@ -8,7 +8,6 @@ import { createMockAdapter } from './mock-adapter';
 
 export * from './types';
 export { createMockAdapter } from './mock-adapter';
-export { MOCK_AUTH_EMAILS } from './auth-handlers';
 
 /**
  * Routes requests through the mocks. Sets the adapter on both the shared axios

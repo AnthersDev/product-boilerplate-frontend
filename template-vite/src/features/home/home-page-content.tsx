@@ -14,6 +14,7 @@ import { ArrowRight, ExternalLink, Link, MessageCircleQuestionMark } from 'lucid
 import { useNavigate } from 'react-router-dom';
 
 import { StatusScreen } from '@/components/StatusScreen';
+import { env } from '@/libs/env';
 
 import type { HomePageDataProps } from './types';
 
@@ -65,9 +66,11 @@ export const HomePageSections = ({ data }: { data: HomePageDataProps }) => {
         title="Nothing on your home page yet"
         description={data.description}
         actions={
-          <Button variant="outline" onClick={() => navigate('/')}>
-            Load sample data
-          </Button>
+          env.useMockApi ? (
+            <Button variant="outline" onClick={() => navigate('/?home=default')}>
+              Load sample data
+            </Button>
+          ) : undefined
         }
       />
     );

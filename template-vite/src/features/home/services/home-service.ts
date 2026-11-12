@@ -1,4 +1,4 @@
-import { queryOptions } from '@tanstack/react-query';
+import { queryOptions, type QueryClient } from '@tanstack/react-query';
 
 import { httpClient, type ApiEnvelope } from '@/services/api';
 
@@ -10,6 +10,9 @@ export const homeQueryKeys = {
   all: ['home'] as const,
   page: (scenario: HomeDemoScenarioProps) => [...homeQueryKeys.all, scenario] as const,
 };
+
+export const clearHomeCache = (queryClient: QueryClient) =>
+  queryClient.removeQueries({ queryKey: homeQueryKeys.all });
 
 export const fetchHomePage = async (scenario: HomeDemoScenarioProps = 'default') => {
   const { data } = await httpClient.get<ApiEnvelope<HomePageDataProps>>(HOME_ENDPOINT, {

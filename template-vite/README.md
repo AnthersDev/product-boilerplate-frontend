@@ -96,6 +96,9 @@ Set `VITE_USE_MOCK_API=false` and `VITE_API_BASE_URL` in `.env.local`, then rest
 | `GET /auth/organization`                  | Organizations the user belongs to                          |
 | `POST /auth/organization/:organizationId` | Switch the session to that organization                    |
 | `POST /auth/logout`                       | End the session                                            |
+| `GET /home`                               | Home page data in `{ status, message, data }` envelope; `data` contains the fields described below |
+
+The `/home` response's `data` follows [`HomePageDataProps`](./src/features/home/types.ts): `title`, `description`, `insights`, `onboarding` (`heading`, `description`, `steps`), `featureCards`, and `partners` (`title`, `description`, `cards`) are required. Insight items require `title` and `value`; onboarding steps require `title`, `description`, and `completed`; feature cards require `heading`, `description`, `imageAlt`, `imageSrc`, `mediaSide`, `mediaWidthPct`, `type`, and `primaryActionLabel`; partner cards require `heading`, `description`, `imageSrc`, and `primaryActionLabel`. Optional fields are `percentageChange`, `previousValue`, `isPositive`, and `tooltipContent` on insights, and `secondaryActionLabel` on feature cards. Return empty arrays (`[]`) for empty `insights`, `onboarding.steps`, `featureCards`, or `partners.cards`; an empty home page has all four collections empty.
 
 Requests are sent with credentials, so if the API is on another origin it must allow credentials in CORS and set cookies that the browser will send back. The magic link should send the user to `/select-org` after it sets the cookies.
 

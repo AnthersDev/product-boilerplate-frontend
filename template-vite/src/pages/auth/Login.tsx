@@ -5,7 +5,7 @@ import { LoginPage } from '@marmeto_engineering/anthers-components';
 import { brand } from '@/config';
 import { clearAnthersAuthToken, signInEndpoint } from '@/features/auth';
 import { env } from '@/libs/env';
-import { MOCK_AUTH_EMAILS } from '@/services/mocks';
+import { MOCK_AUTH_EMAILS } from '@/services/mocks/mock-auth-emails';
 
 /** Where the backend sends the user after they open the magic link and it sets the session cookies. */
 const MAGIC_LINK_REDIRECT_URL = new URL(`${import.meta.env.BASE_URL}select-org`, window.location.origin).toString();

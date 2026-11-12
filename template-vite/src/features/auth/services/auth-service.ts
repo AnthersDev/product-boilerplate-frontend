@@ -2,6 +2,7 @@ import { queryOptions, type QueryClient } from '@tanstack/react-query';
 
 import { env } from '@/libs/env';
 import { ApiError, httpClient, type ApiEnvelope } from '@/services/api';
+import { clearHomeCache } from '@/features/home/services/home-service';
 
 import type { AuthSession, Organization } from '../types';
 
@@ -48,6 +49,7 @@ export const fetchSession = async (queryClient: QueryClient, signal?: AbortSigna
   } catch (error) {
     if (error instanceof ApiError && error.status === 401) {
       clearOrganizationCache(queryClient);
+      clearHomeCache(queryClient);
       return null;
     }
     throw error;

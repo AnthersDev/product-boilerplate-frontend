@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { ApiError } from '@/services/api';
+import { clearHomeCache } from '@/features/home/services/home-service';
 
 import { authQueryKeys, completeMockSignIn, signOut } from '../services';
 
@@ -9,6 +10,7 @@ export const useCompleteMockSignIn = () => {
   return useMutation({
     mutationFn: completeMockSignIn,
     onSuccess: async (session) => {
+      clearHomeCache(queryClient);
       await queryClient.cancelQueries({ queryKey: authQueryKeys.session() });
       queryClient.setQueryData(authQueryKeys.session(), session);
     },
