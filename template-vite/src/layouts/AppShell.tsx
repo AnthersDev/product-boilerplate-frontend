@@ -1,10 +1,9 @@
-import React, { useMemo } from 'react';
-import { Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { AppLayout, Breadcrumbs, type AppLayoutProps } from '@marmeto_engineering/anthers-components';
+import React from 'react';
+import { Outlet, useNavigate } from 'react-router-dom';
+import { AppLayout, type AppLayoutProps } from '@marmeto_engineering/anthers-components';
 import { LogOut } from 'lucide-react';
 
 import { brand } from '@/config';
-import { breadcrumbsForPath } from '@/config/navigation';
 import { useSession, useSignOut } from '@/features/auth';
 
 import AppSidebar from './AppSidebar';
@@ -13,12 +12,10 @@ type ShellAppLayoutProps = Extract<AppLayoutProps, { showAppList?: false }>;
 
 const AppShell = () => {
   const navigate = useNavigate();
-  const { pathname } = useLocation();
   const { data: session } = useSession();
   const signOut = useSignOut();
 
   const userName = [session?.user.firstName, session?.user.lastName].filter(Boolean).join(' ') || 'User';
-  const crumbs = useMemo(() => breadcrumbsForPath(pathname), [pathname]);
 
   const userMenuItems: NonNullable<ShellAppLayoutProps['userMenuItems']> = [
     {
@@ -57,7 +54,6 @@ const AppShell = () => {
       userMenuItems={userMenuItems}
       sidebarMenus={<AppSidebar />}
       sidebarFooter={<></>}
-      bottomSlot={crumbs.length > 0 ? <Breadcrumbs crumbs={crumbs} /> : undefined}
     >
       {signOut.isError && (
         <p role="alert" className="text-small mx-auto mt-4 max-w-2xl px-6 text-red-600">

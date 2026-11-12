@@ -3,6 +3,7 @@
   "scripts": {
     "prepare": "husky",
     "dev": "vite",
+    "clean:demo": "node scripts/clean-demo-data.mjs",
     "build": "tsc && vite build",
     "preview": "vite preview",
     "format": "prettier --ignore-path .gitignore -u --write .",

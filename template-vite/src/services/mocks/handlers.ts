@@ -1,5 +1,6 @@
 import { authMockRoutes } from './auth-handlers';
 import { homeMockRoutes } from './home-handlers';
+import { reportsMockRoutes } from './reports-handlers';
 import type { MockRoute } from './types';
 
 export const mockRoutes: MockRoute[] = [
@@ -10,4 +11,5 @@ export const mockRoutes: MockRoute[] = [
   },
   ...authMockRoutes,
   ...homeMockRoutes,
+  ...reportsMockRoutes,
 ];

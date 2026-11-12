@@ -1,11 +1,6 @@
 import { createElement, type ReactElement } from 'react';
 import { FileText, Gift, Home as HomeIcon, LifeBuoy, Settings } from 'lucide-react';
 
-export interface NavCrumbProps {
-  label: string;
-  href: string;
-}
-
 export interface NavItemProps {
   id: string;
   label: string;
@@ -74,28 +69,3 @@ export const withActiveNavState = (items: NavItemProps[], pathname: string) =>
     ...item,
     isActive: isPathActive(pathname, item),
   }));
-
-/**
- * Breadcrumbs for the current path. Home alone is omitted (the page title is enough).
- */
-export const breadcrumbsForPath = (pathname: string): NavCrumbProps[] => {
-  if (pathname === '/') return [];
-
-  const match = [...mainNavItems, ...secondaryNavItems]
-    .filter((item) => !item.href.startsWith('http') && isPathActive(pathname, item))
-    .sort((a, b) => b.href.length - a.href.length)[0];
-
-  const crumbs: NavCrumbProps[] = [{ label: 'Home', href: '/' }];
-
-  if (match) {
-    crumbs.push({ label: match.label, href: match.href });
-    return crumbs;
-  }
-
-  const segment = pathname.split('/').filter(Boolean).pop() ?? 'Page';
-  crumbs.push({
-    label: segment.charAt(0).toUpperCase() + segment.slice(1).replace(/-/g, ' '),
-    href: pathname,
-  });
-  return crumbs;
-};
