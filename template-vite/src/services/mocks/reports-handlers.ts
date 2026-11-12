@@ -1,5 +1,6 @@
 import type { ReportListingData, ReportOrderNode } from '@/features/reports';
 
+import { getUnauthorizedSessionResponse } from './auth-handlers';
 import type { MockRequest, MockResponse, MockRoute } from './types';
 
 const PAGE_SIZE = 10;
@@ -415,12 +416,19 @@ export const reportsMockRoutes: MockRoute[] = [
   {
     method: 'GET',
     path: '/reports',
-    handler: ({ query }) => ok(paginate(filterOrders(query), query)),
+    handler: ({ query, adapterStorage }) => {
+      const unauthorizedResponse = getUnauthorizedSessionResponse(adapterStorage);
+      if (unauthorizedResponse) return unauthorizedResponse;
+      return ok(paginate(filterOrders(query), query));
+    },
   },
   {
     method: 'GET',
     path: '/filter-view',
     handler: ({ query, adapterStorage }) => {
+      const unauthorizedResponse = getUnauthorizedSessionResponse(adapterStorage);
+      if (unauthorizedResponse) return unauthorizedResponse;
+
       const type = query.get('type') ?? FILTER_TYPE;
       if (type !== FILTER_TYPE) {
         return ok({ filters: [], views: [] });
@@ -435,6 +443,9 @@ export const reportsMockRoutes: MockRoute[] = [
     method: 'POST',
     path: '/filter-view',
     handler: ({ body, adapterStorage }: MockRequest) => {
+      const unauthorizedResponse = getUnauthorizedSessionResponse(adapterStorage);
+      if (unauthorizedResponse) return unauthorizedResponse;
+
       const parsed = readSavedViewBody(body);
       if (!parsed?.name) return fail(400, 'A view name and valid filters are required.');
       const views = getViews(adapterStorage);
@@ -451,6 +462,9 @@ export const reportsMockRoutes: MockRoute[] = [
     method: 'PUT',
     path: '/filter-view/:id',
     handler: ({ params, body, adapterStorage }) => {
+      const unauthorizedResponse = getUnauthorizedSessionResponse(adapterStorage);
+      if (unauthorizedResponse) return unauthorizedResponse;
+
       const views = getViews(adapterStorage);
       const index = views.findIndex((view) => view.id === params.id);
       if (index < 0) return fail(404, 'View not found.');
@@ -473,6 +487,9 @@ export const reportsMockRoutes: MockRoute[] = [
     method: 'DELETE',
     path: '/filter-view/:id',
     handler: ({ params, adapterStorage }) => {
+      const unauthorizedResponse = getUnauthorizedSessionResponse(adapterStorage);
+      if (unauthorizedResponse) return unauthorizedResponse;
+
       const views = getViews(adapterStorage);
       const index = views.findIndex((view) => view.id === params.id);
       if (index < 0) return fail(404, 'View not found.');

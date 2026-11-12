@@ -11,4 +11,9 @@ export const env = {
     (import.meta.env.DEV && import.meta.env.VITE_USE_MOCK_API === undefined),
   mockApiDelayMs: toNumber(import.meta.env.VITE_MOCK_API_DELAY_MS, 300),
   ssoAppId: import.meta.env.VITE_SSO_APP_ID || undefined,
+  /**
+   * Must match the backend `APP_NAME`. Selects the CSRF header (`X-{APP_NAME}-Request`)
+   * and the cross-tab refresh lock name.
+   */
+  appName: import.meta.env.VITE_APP_NAME?.trim() || 'app',
 } as const;

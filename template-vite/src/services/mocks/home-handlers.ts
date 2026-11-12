@@ -1,5 +1,6 @@
 import type { HomePageDataProps } from '@/features/home';
 
+import { getUnauthorizedSessionResponse } from './auth-handlers';
 import type { MockResponse, MockRoute } from './types';
 
 const ok = (data: unknown, message?: string): MockResponse => ({ data: { status: true, message, data } });
@@ -138,7 +139,10 @@ export const homeMockRoutes: MockRoute[] = [
   {
     method: 'GET',
     path: '/home',
-    handler: ({ query }) => {
+    handler: ({ query, adapterStorage }) => {
+      const unauthorizedResponse = getUnauthorizedSessionResponse(adapterStorage);
+      if (unauthorizedResponse) return unauthorizedResponse;
+
       const scenario = query.get('scenario');
       if (scenario === 'error') {
         return fail(500, 'Could not load the home page.');

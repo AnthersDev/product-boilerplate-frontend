@@ -177,12 +177,12 @@ const FileUploadField = ({
         aria-describedby={`${id}-description`}
         onChange={(event) => onUploadFilesSelected(event.currentTarget.files)}
       />
-      <Upload strokeWidth={1.75} size={20} aria-hidden="true" className="text-zinc-500" />
-      <span className="text-small mt-3 font-medium text-zinc-900">{title}</span>
-      <span className="text-small mt-1 text-zinc-500">
+      <Upload className="text-gray-600" size={24} strokeWidth={1.75} aria-hidden="true" />
+      <span className="text-title max-md:text-label mt-3 leading-snug font-semibold text-zinc-800">{title}</span>
+      <span className="text-label md:text-body mt-1 leading-normal text-zinc-500">
         {selectedFiles || 'Drag & drop files here or click to browse'}
       </span>
-      <span id={`${id}-description`} className="text-label mt-2 text-zinc-500">
+      <span id={`${id}-description`} className="text-label md:text-body mt-2 leading-normal text-zinc-500">
         {description}
       </span>
     </label>
