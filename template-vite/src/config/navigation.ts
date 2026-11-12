@@ -1,5 +1,5 @@
 import { createElement, type ReactElement } from 'react';
-import { ChartNoAxesColumn, FileText, Gift, Home as HomeIcon, LifeBuoy, Settings } from 'lucide-react';
+import { FileText, Gift, Home as HomeIcon, LifeBuoy, Settings } from 'lucide-react';
 
 export interface NavCrumbProps {
   label: string;
@@ -9,16 +9,19 @@ export interface NavCrumbProps {
 export interface NavItemProps {
   id: string;
   label: string;
-  href?: string;
+  href: string;
   icon?: ReactElement;
+  target?: '_blank' | '_self';
   /** Match this path (and children) for the active state. Defaults to `href`. */
   matchPath?: string;
-  subItems?: NavItemProps[];
 }
 
 const icon = (Icon: typeof HomeIcon) => createElement(Icon, { size: 16, strokeWidth: 1.75 });
 
-/** Primary sidebar. Products replace or extend this list. */
+/**
+ * Primary sidebar items. Flat list like Nexus — products replace or extend this.
+ * Nested “Analytics > Reports” menus are avoided so the active state stays a single row.
+ */
 export const mainNavItems: NavItemProps[] = [
   {
     id: 'home',
@@ -27,23 +30,12 @@ export const mainNavItems: NavItemProps[] = [
     icon: icon(HomeIcon),
   },
   {
-    id: 'analytics',
-    label: 'Analytics',
-    icon: icon(ChartNoAxesColumn),
+    id: 'reports',
+    label: 'Reports',
+    href: '/analytics/reports',
     matchPath: '/analytics',
-    subItems: [
-      {
-        id: 'reports',
-        label: 'Reports',
-        href: '/analytics/reports',
-        icon: icon(FileText),
-      },
-    ],
+    icon: icon(FileText),
   },
-];
-
-/** Secondary sidebar (below the divider). */
-export const secondaryNavItems: NavItemProps[] = [
   {
     id: 'settings',
     label: 'Settings',
@@ -51,16 +43,21 @@ export const secondaryNavItems: NavItemProps[] = [
     icon: icon(Settings),
   },
   {
-    id: 'help',
-    label: 'Help Center',
-    href: 'https://docs.example.com',
-    icon: icon(LifeBuoy),
-  },
-  {
     id: 'whats-new',
     label: "What's New",
     href: '/whats-new',
     icon: icon(Gift),
+  },
+];
+
+/** Second group (divider above), typically docs / external links. */
+export const secondaryNavItems: NavItemProps[] = [
+  {
+    id: 'docs',
+    label: 'Docs',
+    href: 'https://docs.example.com',
+    target: '_blank',
+    icon: icon(LifeBuoy),
   },
 ];
 
@@ -71,46 +68,27 @@ const isPathActive = (pathname: string, item: NavItemProps) => {
   return pathname === target || pathname.startsWith(`${target}/`);
 };
 
-/** Marks `isActive` / `isExpanded` from the current location for Anthers sidebar items. */
+/** Marks `isActive` from the current location for Anthers sidebar items. */
 export const withActiveNavState = (items: NavItemProps[], pathname: string) =>
-  items.map((item) => {
-    const subItems = item.subItems?.map((sub) => ({
-      ...sub,
-      isActive: isPathActive(pathname, sub),
-    }));
-    const isChildActive = subItems?.some((sub) => sub.isActive) ?? false;
-    return {
-      ...item,
-      isActive: isPathActive(pathname, item) || isChildActive,
-      isExpanded: Boolean(item.subItems) && (isChildActive || isPathActive(pathname, item)),
-      subItems,
-    };
-  });
-
-const flatNav = (items: NavItemProps[]): NavItemProps[] =>
-  items.flatMap((item) => [item, ...(item.subItems ? flatNav(item.subItems) : [])]);
+  items.map((item) => ({
+    ...item,
+    isActive: isPathActive(pathname, item),
+  }));
 
 /**
  * Breadcrumbs for the current path. Home alone is omitted (the page title is enough).
- * Unknown paths fall back to a single crumb for the last segment.
  */
 export const breadcrumbsForPath = (pathname: string): NavCrumbProps[] => {
   if (pathname === '/') return [];
 
-  const known = flatNav([...mainNavItems, ...secondaryNavItems]).filter(
-    (item) => item.href && !item.href.startsWith('http') && isPathActive(pathname, item),
-  );
+  const match = [...mainNavItems, ...secondaryNavItems]
+    .filter((item) => !item.href.startsWith('http') && isPathActive(pathname, item))
+    .sort((a, b) => b.href.length - a.href.length)[0];
 
   const crumbs: NavCrumbProps[] = [{ label: 'Home', href: '/' }];
 
-  if (known.length > 0) {
-    const best = known.sort((a, b) => (b.href?.length ?? 0) - (a.href?.length ?? 0))[0];
-    if (best.href?.startsWith('/analytics')) {
-      crumbs.push({ label: 'Analytics', href: '/analytics/reports' });
-    }
-    if (best.label !== 'Analytics') {
-      crumbs.push({ label: best.label, href: best.href ?? pathname });
-    }
+  if (match) {
+    crumbs.push({ label: match.label, href: match.href });
     return crumbs;
   }
 

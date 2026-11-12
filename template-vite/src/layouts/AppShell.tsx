@@ -4,8 +4,10 @@ import { AppLayout, Breadcrumbs, type AppLayoutProps } from '@marmeto_engineerin
 import { LogOut } from 'lucide-react';
 
 import { brand } from '@/config';
-import { breadcrumbsForPath, mainNavItems, secondaryNavItems, withActiveNavState } from '@/config/navigation';
+import { breadcrumbsForPath } from '@/config/navigation';
 import { useSession, useSignOut } from '@/features/auth';
+
+import AppSidebar from './AppSidebar';
 
 type ShellAppLayoutProps = Extract<AppLayoutProps, { showAppList?: false }>;
 
@@ -16,18 +18,6 @@ const AppShell = () => {
   const signOut = useSignOut();
 
   const userName = [session?.user.firstName, session?.user.lastName].filter(Boolean).join(' ') || 'User';
-
-  const mainSidebarMenuItems = useMemo(
-    () => withActiveNavState(mainNavItems, pathname) as NonNullable<ShellAppLayoutProps['mainSidebarMenuItems']>,
-    [pathname],
-  );
-
-  const secondarySidebarMenuItems = useMemo(
-    () =>
-      withActiveNavState(secondaryNavItems, pathname) as NonNullable<ShellAppLayoutProps['secondarySidebarMenuItems']>,
-    [pathname],
-  );
-
   const crumbs = useMemo(() => breadcrumbsForPath(pathname), [pathname]);
 
   const userMenuItems: NonNullable<ShellAppLayoutProps['userMenuItems']> = [
@@ -51,8 +41,9 @@ const AppShell = () => {
 
   return (
     <AppLayout
-      showSearch
-      showNotifications
+      // Match Nexus: logo + user menu only — no global search or notification bell.
+      showSearch={false}
+      showNotifications={false}
       showAppList={false}
       headerLogo={{
         url: brand.logo,
@@ -64,8 +55,7 @@ const AppShell = () => {
         email: session?.user.email ?? '',
       }}
       userMenuItems={userMenuItems}
-      mainSidebarMenuItems={mainSidebarMenuItems}
-      secondarySidebarMenuItems={secondarySidebarMenuItems}
+      sidebarMenus={<AppSidebar />}
       sidebarFooter={<></>}
       bottomSlot={crumbs.length > 0 ? <Breadcrumbs crumbs={crumbs} /> : undefined}
     >
