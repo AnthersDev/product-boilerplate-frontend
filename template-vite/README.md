@@ -131,6 +131,7 @@ While developing, you will mostly use `npm run dev`. These scripts are also avai
 | `lint`             | Runs [ESLint](https://eslint.org/) on the project                                                    |
 | `lint:fix`         | Runs ESLint and [fixes what it can](https://eslint.org/docs/latest/use/command-line-interface#--fix) |
 | `type-check`       | Runs the TypeScript compiler without emitting files                                                  |
+| `clean:demo`       | One-time source cleanup: empties mock report rows and removes homepage demo-state controls            |
 
 ## Production
 
