@@ -50,6 +50,73 @@ const createInitialSettings = (): SettingsValues => ({
   },
 });
 
+const SETTINGS_STORAGE_KEY = 'product-boilerplate-settings';
+
+const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null;
+
+const isSettingsValues = (value: unknown): value is SettingsValues => {
+  if (
+    !isRecord(value) ||
+    !isRecord(value.general) ||
+    !isRecord(value.userManagement) ||
+    !isRecord(value.notifications)
+  ) {
+    return false;
+  }
+
+  const { general, userManagement, notifications } = value;
+  return (
+    typeof general.workspaceName === 'string' &&
+    typeof general.appListingUrl === 'string' &&
+    typeof general.supportEmail === 'string' &&
+    typeof general.timezone === 'string' &&
+    typeof general.brandLogo === 'string' &&
+    typeof general.brandFavicon === 'string' &&
+    Array.isArray(general.brandDocuments) &&
+    general.brandDocuments.every((document) => typeof document === 'string') &&
+    typeof userManagement.inviteEmail === 'string' &&
+    (userManagement.defaultRole === 'Admin' || userManagement.defaultRole === 'Member') &&
+    typeof notifications.securityAlerts === 'boolean' &&
+    typeof notifications.productUpdates === 'boolean' &&
+    typeof notifications.weeklySummary === 'boolean'
+  );
+};
+
+const loadSettings = (): SettingsValues => {
+  try {
+    if (typeof window === 'undefined') return createInitialSettings();
+    const storedSettings = window.sessionStorage.getItem(SETTINGS_STORAGE_KEY);
+    if (!storedSettings) return createInitialSettings();
+
+    const parsedSettings: unknown = JSON.parse(storedSettings);
+    return isSettingsValues(parsedSettings) ? parsedSettings : createInitialSettings();
+  } catch {
+    return createInitialSettings();
+  }
+};
+
+const getSettingsValidationErrors = (settings: SettingsValues) => {
+  const errors: Partial<Record<'appListingUrl' | 'supportEmail', string>> = {};
+  const { supportEmail, appListingUrl } = settings.general;
+
+  if (supportEmail.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(supportEmail.trim())) {
+    errors.supportEmail = 'Enter a valid email address.';
+  }
+
+  if (appListingUrl.trim()) {
+    try {
+      const url = new URL(appListingUrl.trim());
+      if (!['http:', 'https:'].includes(url.protocol) || !url.hostname) {
+        errors.appListingUrl = 'Enter a valid http or https URL.';
+      }
+    } catch {
+      errors.appListingUrl = 'Enter a valid http or https URL.';
+    }
+  }
+
+  return errors;
+};
+
 const sectionContent: Record<SettingsSection, { title: string; description: string }> = {
   general: {
     title: 'General Settings',
@@ -68,11 +135,12 @@ const sectionContent: Record<SettingsSection, { title: string; description: stri
 
 const Settings = () => {
   const [activeSection, setActiveSection] = useState<SettingsSection | null>(null);
-  const [savedSettings, setSavedSettings] = useState(createInitialSettings);
-  const [draftSettings, setDraftSettings] = useState(createInitialSettings);
+  const [savedSettings, setSavedSettings] = useState(loadSettings);
+  const [draftSettings, setDraftSettings] = useState(savedSettings);
+  const [generalErrors, setGeneralErrors] = useState<Partial<Record<'appListingUrl' | 'supportEmail', string>>>({});
   const hasChanges = JSON.stringify(savedSettings) !== JSON.stringify(draftSettings);
 
-  const updateGeneral = <Field extends keyof SettingsValues['general']>(
+  const onGeneralChange = <Field extends keyof SettingsValues['general']>(
     field: Field,
     value: SettingsValues['general'][Field],
   ) => {
@@ -80,6 +148,9 @@ const Settings = () => {
       ...current,
       general: { ...current.general, [field]: value },
     }));
+    if (field === 'appListingUrl' || field === 'supportEmail') {
+      setGeneralErrors((current) => ({ ...current, [field]: undefined }));
+    }
   };
 
   const updateUserManagement = <Field extends keyof SettingsValues['userManagement']>(
@@ -100,11 +171,28 @@ const Settings = () => {
   };
 
   const onSaveChanges = () => {
+    const errors = getSettingsValidationErrors(draftSettings);
+    setGeneralErrors(errors);
+    if (Object.keys(errors).length > 0) {
+      show('Please correct the highlighted fields before saving.', { type: 'error' });
+      return;
+    }
+
+    try {
+      window.sessionStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(draftSettings));
+    } catch {
+      show('Settings could not be saved in this browser session.', { type: 'error' });
+      return;
+    }
+
     setSavedSettings(draftSettings);
     show('Settings saved for this session.', { type: 'success' });
   };
 
-  const onDiscardChanges = () => setDraftSettings(savedSettings);
+  const onDiscardChanges = () => {
+    setDraftSettings(savedSettings);
+    setGeneralErrors({});
+  };
 
   const onSendInvitation = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -173,7 +261,8 @@ const Settings = () => {
           <GeneralSettings
             settings={draftSettings.general}
             description={sectionContent.general.description}
-            onChange={updateGeneral}
+            errors={generalErrors}
+            onChange={onGeneralChange}
           />
         )}
 
@@ -212,10 +301,7 @@ const Settings = () => {
                 </Button>
               </form>
             </SettingLayout>
-            <SettingLayout
-              title="Workspace roles"
-              description="Use roles to control what teammates can access."
-            >
+            <SettingLayout title="Workspace roles" description="Use roles to control what teammates can access.">
               <dl className="divide-y divide-zinc-100">
                 <div className="py-3 sm:flex sm:gap-4">
                   <dt className="text-small w-24 shrink-0 font-semibold text-zinc-900">Admin</dt>

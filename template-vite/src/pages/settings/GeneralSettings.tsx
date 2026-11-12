@@ -14,18 +14,13 @@ export interface GeneralSettingsValues {
 interface GeneralSettingsProps {
   settings: GeneralSettingsValues;
   description: string;
-  onChange: <Field extends keyof GeneralSettingsValues>(
-    field: Field,
-    value: GeneralSettingsValues[Field],
-  ) => void;
+  errors: Partial<Record<'appListingUrl' | 'supportEmail', string>>;
+  onChange: <Field extends keyof GeneralSettingsValues>(field: Field, value: GeneralSettingsValues[Field]) => void;
 }
 
-const GeneralSettings = ({ settings, description, onChange }: GeneralSettingsProps) => (
+const GeneralSettings = ({ settings, description, errors, onChange }: GeneralSettingsProps) => (
   <div className="space-y-5">
-    <SettingLayout
-      title="General Settings"
-      description={description}
-    >
+    <SettingLayout title="General Settings" description={description}>
       <div className="grid gap-5 md:grid-cols-2">
         <InputField
           id="workspace-name"
@@ -38,6 +33,7 @@ const GeneralSettings = ({ settings, description, onChange }: GeneralSettingsPro
           label="App Listing Url"
           type="url"
           placeholder="Enter your app listing url"
+          errorText={errors.appListingUrl}
           value={settings.appListingUrl}
           onChange={(event) => onChange('appListingUrl', event.target.value)}
         />
@@ -45,6 +41,7 @@ const GeneralSettings = ({ settings, description, onChange }: GeneralSettingsPro
           id="support-email"
           label="Support Email"
           type="email"
+          errorText={errors.supportEmail}
           value={settings.supportEmail}
           onChange={(event) => onChange('supportEmail', event.target.value)}
         />
@@ -102,7 +99,11 @@ const GeneralSettings = ({ settings, description, onChange }: GeneralSettingsPro
         multiple
         selectedFiles={settings.brandDocuments.join(', ')}
         onFilesSelected={(files) => {
-          if (files) onChange('brandDocuments', Array.from(files, (file) => file.name));
+          if (files)
+            onChange(
+              'brandDocuments',
+              Array.from(files, (file) => file.name),
+            );
         }}
       />
     </SettingLayout>
@@ -116,7 +117,7 @@ interface FileUploadFieldProps {
   description: string;
   selectedFiles: string;
   multiple?: boolean;
-  onFilesSelected: (files: FileList | null) => void;
+  onFilesSelected: (files: File[]) => void;
 }
 
 const MAX_UPLOAD_SIZE_BYTES = 5 * 1024 * 1024;
@@ -131,11 +132,30 @@ const FileUploadField = ({
   onFilesSelected,
 }: FileUploadFieldProps) => {
   const onUploadFilesSelected = (files: FileList | null) => {
-    if (files && Array.from(files).some((file) => file.size > MAX_UPLOAD_SIZE_BYTES)) {
+    const selectedFiles = Array.from(files ?? []);
+    if (selectedFiles.some((file) => file.size > MAX_UPLOAD_SIZE_BYTES)) {
       show('Each file must be 5 MB or smaller.', { type: 'error' });
       return;
     }
-    onFilesSelected(files);
+
+    const acceptedTypes = accept
+      .split(',')
+      .map((type) => type.trim().toLowerCase())
+      .filter(Boolean);
+    const supportedFiles = selectedFiles.filter((file) => {
+      const fileName = file.name.toLowerCase();
+      const fileType = file.type.toLowerCase();
+      return acceptedTypes.some((type) => {
+        if (type.startsWith('.')) return fileName.endsWith(type);
+        if (type.endsWith('/*')) return fileType.startsWith(type.slice(0, -1));
+        return fileType === type;
+      });
+    });
+
+    if (supportedFiles.length !== selectedFiles.length) {
+      show(`Some files are not supported. ${description}`, { type: 'error' });
+    }
+    if (supportedFiles.length) onFilesSelected(supportedFiles);
   };
 
   return (
