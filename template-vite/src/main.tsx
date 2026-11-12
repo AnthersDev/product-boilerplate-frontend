@@ -12,7 +12,7 @@ const root = createRoot(document.getElementById('root') as HTMLElement);
 const renderStartupError = () =>
   root.render(
     <main role="alert" className="p-6">
-      <h1 className="text-lg font-semibold">Unable to start the application</h1>
+      <h1 className="text-headline font-semibold">Unable to start the application</h1>
       <p className="mt-2">Mock API initialization failed.</p>
       <button className="mt-4" type="button" onClick={() => void start()}>
         Retry
