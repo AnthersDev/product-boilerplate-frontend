@@ -11,6 +11,7 @@ import {
   PartnerCard,
 } from '@marmeto_engineering/anthers-components';
 import { ArrowRight, ExternalLink, Link, MessageCircleQuestionMark } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 import { StatusScreen } from '@/components/StatusScreen';
 
@@ -51,6 +52,7 @@ export const HomePageLoading = () => (
 );
 
 export const HomePageSections = ({ data }: { data: HomePageDataProps }) => {
+  const navigate = useNavigate();
   const hasInsights = data.insights.length > 0;
   const hasOnboarding = data.onboarding.steps.length > 0;
   const hasFeatures = data.featureCards.length > 0;
@@ -63,7 +65,7 @@ export const HomePageSections = ({ data }: { data: HomePageDataProps }) => {
         title="Nothing on your home page yet"
         description={data.description}
         actions={
-          <Button variant="outline" onClick={() => window.location.assign('/')}>
+          <Button variant="outline" onClick={() => navigate('/')}>
             Load sample data
           </Button>
         }
