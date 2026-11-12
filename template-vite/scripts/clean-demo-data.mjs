@@ -120,9 +120,16 @@ const changes = [
     }
     return cleanHomeHook;
   }),
-  update(homeTypesPath, (source) =>
-    replaceToEnd(source, '/** Mock/API demo states.', '', homeTypesPath, 'export interface HomePageDataProps'),
-  ),
+  update(homeTypesPath, (source) => {
+    const result = replaceToEnd(
+      source,
+      '/** Mock/API demo states.',
+      '',
+      homeTypesPath,
+      'export interface HomePageDataProps',
+    );
+    return `${result.trimEnd()}\n`;
+  }),
   update(homeServicePath, (source) => {
     let result = replaceOnce(
       source,
@@ -217,7 +224,7 @@ const changes = [
     result = replaceSection(
       result,
       '      {env.useMockApi && (',
-      '\n\n      {home.isPending',
+      '      {home.isPending',
       '',
       homePagePath,
       'const home = useHomePage();',
@@ -241,7 +248,7 @@ const changes = [
       'export const HomePageSections',
     );
     result = replaceOnce(result, '  const navigate = useNavigate();\n', '', homeContentPath, 'const hasInsights');
-    return replaceOnce(
+    result = replaceOnce(
       result,
       `        actions={
           env.useMockApi ? (
@@ -254,6 +261,18 @@ const changes = [
       '',
       homeContentPath,
       '<StatusScreen',
+    );
+    return replaceOnce(
+      result,
+      `    return (
+      <StatusScreen
+        title="Nothing on your home page yet"
+        description={data.description}
+      />
+    );`,
+      '    return <StatusScreen title="Nothing on your home page yet" description={data.description} />;',
+      homeContentPath,
+      'export const HomePageSections',
     );
   }),
   update(readmePath, (source) =>
