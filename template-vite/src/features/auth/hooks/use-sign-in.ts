@@ -1,9 +1,8 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { ApiError } from '@/services/api';
-import { clearHomeCache } from '@/features/home/services/home-service';
 
-import { authQueryKeys, completeMockSignIn, signOut } from '../services';
+import { authQueryKeys, clearHomeCache, completeMockSignIn, signOut } from '../services';
 
 export const useCompleteMockSignIn = () => {
   const queryClient = useQueryClient();

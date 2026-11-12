@@ -2,7 +2,6 @@ import { queryOptions, type QueryClient } from '@tanstack/react-query';
 
 import { env } from '@/libs/env';
 import { ApiError, httpClient, type ApiEnvelope } from '@/services/api';
-import { clearHomeCache } from '@/features/home/services/home-service';
 
 import type { AuthSession, Organization } from '../types';
 
@@ -40,6 +39,9 @@ export const authQueryKeys = {
 
 export const clearOrganizationCache = (queryClient: QueryClient) =>
   queryClient.removeQueries({ queryKey: authQueryKeys.organizations() });
+
+/** Home data belongs to the current account and organization. */
+export const clearHomeCache = (queryClient: QueryClient) => queryClient.removeQueries({ queryKey: ['home'] });
 
 /** Resolves to `null` when signed out (401) instead of throwing. */
 export const fetchSession = async (queryClient: QueryClient, signal?: AbortSignal): Promise<AuthSession | null> => {

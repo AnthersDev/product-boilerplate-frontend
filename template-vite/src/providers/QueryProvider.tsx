@@ -1,8 +1,7 @@
 import React, { useState, type PropsWithChildren } from 'react';
 import { QueryClientProvider } from '@tanstack/react-query';
 
-import { authQueryKeys, clearOrganizationCache } from '@/features/auth';
-import { clearHomeCache } from '@/features/home/services/home-service';
+import { authQueryKeys, clearHomeCache, clearOrganizationCache } from '@/features/auth';
 import { createQueryClient } from '@/libs/query-client';
 
 const createAppQueryClient = () =>
