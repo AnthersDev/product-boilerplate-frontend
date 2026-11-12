@@ -16,6 +16,9 @@ const vitePluginPWA = () =>
     devOptions: {
       enabled: true,
     },
+    workbox: {
+      maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
+    },
     manifest: {
       name: 'product-boilerplate-frontend',
       short_name: 'product-boilerplate-frontend',
