@@ -2,31 +2,24 @@ import React, { useState } from 'react';
 import {
   Button,
   Card,
-  Checkbox,
-  InputField,
   PageLayout,
-  SelectBox,
-  SettingLayout,
   SettingListLayout,
   show,
 } from '@marmeto_engineering/anthers-components';
-import { Bell, Building2, Users } from 'lucide-react';
+import { Bell, Settings as SettingsIcon, Users } from 'lucide-react';
 import GeneralSettings, { type GeneralSettingsValues } from './GeneralSettings';
+import NotificationsSettings, { type NotificationsSettingsValues } from './NotificationsSettings';
+import UserManagementSettings, {
+  type UserManagementSettingsValues,
+  type MemberRole,
+} from './UserManagementSettings';
 
 type SettingsSection = 'general' | 'user-management' | 'notifications';
-type MemberRole = 'Admin' | 'Member';
 
 interface SettingsValues {
   general: GeneralSettingsValues;
-  userManagement: {
-    inviteEmail: string;
-    defaultRole: MemberRole;
-  };
-  notifications: {
-    securityAlerts: boolean;
-    productUpdates: boolean;
-    weeklySummary: boolean;
-  };
+  userManagement: UserManagementSettingsValues;
+  notifications: NotificationsSettingsValues;
 }
 
 const createInitialSettings = (): SettingsValues => ({
@@ -153,7 +146,7 @@ const Settings = () => {
     }
   };
 
-  const updateUserManagement = <Field extends keyof SettingsValues['userManagement']>(
+  const onUpdateUserManagement = <Field extends keyof SettingsValues['userManagement']>(
     field: Field,
     value: SettingsValues['userManagement'][Field],
   ) => {
@@ -163,7 +156,7 @@ const Settings = () => {
     }));
   };
 
-  const updateNotification = (field: keyof SettingsValues['notifications'], checked: boolean) => {
+  const onUpdateNotification = (field: keyof SettingsValues['notifications'], checked: boolean) => {
     setDraftSettings((current) => ({
       ...current,
       notifications: { ...current.notifications, [field]: checked },
@@ -198,29 +191,28 @@ const Settings = () => {
   const onSendInvitation = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     show(`Invitation prepared for ${draftSettings.userManagement.inviteEmail} (demo).`, { type: 'success' });
-    updateUserManagement('inviteEmail', '');
+    onUpdateUserManagement('inviteEmail', '');
   };
 
   if (!activeSection) {
     return (
       <SettingListLayout
         title="Settings"
-        description="View and manage your workspace settings."
         cards={[
           {
-            icon: <Building2 strokeWidth={1.75} />,
+            icon: <SettingsIcon className="text-gray-600" size={24} strokeWidth={1.75} />,
             title: 'General',
             description: 'Manage workspace details and regional preferences.',
             onClick: () => setActiveSection('general'),
           },
           {
-            icon: <Users strokeWidth={1.75} />,
+            icon: <Users className="text-gray-600" size={24} strokeWidth={1.75} />,
             title: 'User management',
             description: 'Invite users and manage their access.',
             onClick: () => setActiveSection('user-management'),
           },
           {
-            icon: <Bell strokeWidth={1.75} />,
+            icon: <Bell className="text-gray-600" size={24} strokeWidth={1.75} />,
             title: 'Notifications',
             description: 'Choose which updates are sent to your inbox.',
             onClick: () => setActiveSection('notifications'),
@@ -239,24 +231,32 @@ const Settings = () => {
       onBack={() => setActiveSection(null)}
     >
       <div className="space-y-6">
-        <Card className="shadow-sm">
-          <Card.Content className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
-            <div>
-              <p className="text-small font-medium text-zinc-900" role="status" aria-live="polite">
-                {hasChanges ? 'Unsaved changes' : 'All changes saved'}
-              </p>
-              <p className="text-small mt-1 text-zinc-500">Settings are saved for this browser session.</p>
-            </div>
-            <div className="flex gap-2">
-              <Button type="button" variant="outline" disabled={!hasChanges} onClick={onDiscardChanges}>
-                Discard
-              </Button>
-              <Button type="button" variant="primary" disabled={!hasChanges} onClick={onSaveChanges}>
-                Save
-              </Button>
-            </div>
-          </Card.Content>
-        </Card>
+        {hasChanges && (
+          <Card className="shadow-sm">
+            <Card.Content className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+              <div>
+                <p
+                  className="text-title font-semibold leading-snug text-zinc-800 max-md:text-label"
+                  role="status"
+                  aria-live="polite"
+                >
+                  Unsaved changes
+                </p>
+                <p className="text-label mt-1 leading-normal font-light text-zinc-500 md:text-body">
+                  Settings are saved for this browser session.
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <Button type="button" variant="outline" onClick={onDiscardChanges}>
+                  Discard
+                </Button>
+                <Button type="button" variant="primary" onClick={onSaveChanges}>
+                  Save
+                </Button>
+              </div>
+            </Card.Content>
+          </Card>
+        )}
 
         {activeSection === 'general' && (
           <GeneralSettings
@@ -268,113 +268,20 @@ const Settings = () => {
         )}
 
         {activeSection === 'user-management' && (
-          <div className="space-y-5">
-            <SettingLayout
-              title="Invite a teammate"
-              description="Send an invitation and choose the access level they should start with."
-            >
-              <form
-                className="grid items-end gap-4 sm:grid-cols-[minmax(0,1fr)_12rem_auto]"
-                onSubmit={onSendInvitation}
-              >
-                <InputField
-                  id="invite-email"
-                  label="Email address"
-                  type="email"
-                  required
-                  placeholder="name@company.com"
-                  value={draftSettings.userManagement.inviteEmail}
-                  onChange={(event) => updateUserManagement('inviteEmail', event.target.value)}
-                />
-                <SelectBox
-                  options={[
-                    { value: 'Member', label: 'Member' },
-                    { value: 'Admin', label: 'Admin' },
-                  ]}
-                  label="Role"
-                  value={draftSettings.userManagement.defaultRole}
-                  onChange={(option) => {
-                    if (!Array.isArray(option)) updateUserManagement('defaultRole', option.value as MemberRole);
-                  }}
-                />
-                <Button type="submit" variant="primary">
-                  Send invitation
-                </Button>
-              </form>
-            </SettingLayout>
-            <SettingLayout title="Workspace roles" description="Use roles to control what teammates can access.">
-              <dl className="divide-y divide-zinc-100">
-                <div className="py-3 sm:flex sm:gap-4">
-                  <dt className="text-small w-24 shrink-0 font-semibold text-zinc-900">Admin</dt>
-                  <dd className="text-small text-zinc-600">Can manage workspace settings and invite members.</dd>
-                </div>
-                <div className="py-3 sm:flex sm:gap-4">
-                  <dt className="text-small w-24 shrink-0 font-semibold text-zinc-900">Member</dt>
-                  <dd className="text-small text-zinc-600">Can access reports and day-to-day workspace tools.</dd>
-                </div>
-              </dl>
-            </SettingLayout>
-          </div>
+          <UserManagementSettings
+            settings={draftSettings.userManagement}
+            onInviteEmailChange={(email) => onUpdateUserManagement('inviteEmail', email)}
+            onDefaultRoleChange={(role) => onUpdateUserManagement('defaultRole', role)}
+            onSendInvitation={onSendInvitation}
+          />
         )}
 
         {activeSection === 'notifications' && (
-          <SettingLayout
-            title="Notification preferences"
-            description="Choose which updates and reminders are sent to your inbox."
-          >
-            <div className="divide-y divide-zinc-100">
-              <NotificationPreference
-                id="security-alerts"
-                title="Security alerts"
-                description="Get notified about sign-ins and important account changes."
-                checked={draftSettings.notifications.securityAlerts}
-                onChange={(checked) => updateNotification('securityAlerts', checked)}
-              />
-              <NotificationPreference
-                id="product-updates"
-                title="Product updates"
-                description="Hear about new features, improvements, and service announcements."
-                checked={draftSettings.notifications.productUpdates}
-                onChange={(checked) => updateNotification('productUpdates', checked)}
-              />
-              <NotificationPreference
-                id="weekly-summary"
-                title="Weekly summary"
-                description="Receive a weekly email with activity from your workspace."
-                checked={draftSettings.notifications.weeklySummary}
-                onChange={(checked) => updateNotification('weeklySummary', checked)}
-              />
-            </div>
-          </SettingLayout>
+          <NotificationsSettings settings={draftSettings.notifications} onChange={onUpdateNotification} />
         )}
       </div>
     </PageLayout>
   );
 };
-
-interface NotificationPreferenceProps {
-  id: string;
-  title: string;
-  description: string;
-  checked: boolean;
-  onChange: (checked: boolean) => void;
-}
-
-const NotificationPreference = ({ id, title, description, checked, onChange }: NotificationPreferenceProps) => (
-  <div className="py-4">
-    <Checkbox
-      id={id}
-      name={id}
-      checked={checked}
-      label={
-        <div>
-          <span className="text-small font-medium text-zinc-900">{title}</span>
-          <p className="text-small mt-1 text-zinc-600">{description}</p>
-        </div>
-      }
-      onChange={onChange}
-    />
-  </div>
-);
 
 export default Settings;
