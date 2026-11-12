@@ -1,9 +1,11 @@
+import { log } from 'node:console';
 import { readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
+import { argv, exit } from 'node:process';
 import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const isDryRun = process.argv.includes('--dry-run');
+const isDryRun = argv.includes('--dry-run');
 
 const read = (relativePath) => readFileSync(path.join(root, relativePath), 'utf8');
 
@@ -83,7 +85,7 @@ const changes = [
   update(homeHandlersPath, (source) => {
     let result = replaceOnce(
       source,
-      "const fail = (status: number, message: string): MockResponse => ({ status, data: { status: false, message } });\n",
+      'const fail = (status: number, message: string): MockResponse => ({ status, data: { status: false, message } });\n',
       '',
       homeHandlersPath,
       'handler: () => ok(FULL_HOME)',
@@ -119,13 +121,7 @@ const changes = [
     return cleanHomeHook;
   }),
   update(homeTypesPath, (source) =>
-    replaceToEnd(
-      source,
-      '/** Mock/API demo states.',
-      '',
-      homeTypesPath,
-      'export interface HomePageDataProps',
-    ),
+    replaceToEnd(source, '/** Mock/API demo states.', '', homeTypesPath, 'export interface HomePageDataProps'),
   ),
   update(homeServicePath, (source) => {
     let result = replaceOnce(
@@ -137,7 +133,7 @@ const changes = [
     );
     result = replaceOnce(
       result,
-      "  page: (scenario: HomeDemoScenarioProps) => [...homeQueryKeys.all, scenario] as const,",
+      '  page: (scenario: HomeDemoScenarioProps) => [...homeQueryKeys.all, scenario] as const,',
       "  page: () => [...homeQueryKeys.all, 'page'] as const,",
       homeServicePath,
       "  page: () => [...homeQueryKeys.all, 'page'] as const,",
@@ -229,13 +225,7 @@ const changes = [
     return result;
   }),
   update(homeContentPath, (source) => {
-    let result = replaceOnce(
-      source,
-      '  Button,\n',
-      '',
-      homeContentPath,
-      'export const HomePageSections',
-    );
+    let result = replaceOnce(source, '  Button,\n', '', homeContentPath, 'export const HomePageSections');
     result = replaceOnce(
       result,
       "import { useNavigate } from 'react-router-dom';\n",
@@ -250,13 +240,7 @@ const changes = [
       homeContentPath,
       'export const HomePageSections',
     );
-    result = replaceOnce(
-      result,
-      '  const navigate = useNavigate();\n',
-      '',
-      homeContentPath,
-      'const hasInsights',
-    );
+    result = replaceOnce(result, '  const navigate = useNavigate();\n', '', homeContentPath, 'const hasInsights');
     return replaceOnce(
       result,
       `        actions={
@@ -286,18 +270,18 @@ const changes = [
 const changed = changes.filter(([relativePath, content]) => content !== read(relativePath));
 
 if (changed.length === 0) {
-  console.log('Demo data is already cleaned.');
-  process.exit(0);
+  log('Demo data is already cleaned.');
+  exit(0);
 }
 
 if (isDryRun) {
-  console.log('The following files would be updated:');
-  changed.forEach(([relativePath]) => console.log(`- ${relativePath}`));
-  process.exit(0);
+  log('The following files would be updated:');
+  changed.forEach(([relativePath]) => log(`- ${relativePath}`));
+  exit(0);
 }
 
 for (const [relativePath, content] of changed) {
   writeFileSync(path.join(root, relativePath), content);
 }
 
-console.log(`Cleaned demo report data and homepage states in ${changed.length} files.`);
+log(`Cleaned demo report data and homepage states in ${changed.length} files.`);

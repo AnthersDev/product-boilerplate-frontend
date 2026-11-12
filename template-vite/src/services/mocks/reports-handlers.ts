@@ -355,24 +355,60 @@ const paginate = (filtered: ReportOrderNode[], query: URLSearchParams): ReportLi
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
+const isStringArray = (value: unknown): value is string[] =>
+  Array.isArray(value) && value.every((item) => typeof item === 'string');
+
+const isStringArrayRecord = (value: unknown): value is Record<string, string[]> =>
+  isRecord(value) && Object.values(value).every(isStringArray);
+
+const isFilterOption = (value: unknown): value is { label: string; value: string } =>
+  isRecord(value) && typeof value.label === 'string' && typeof value.value === 'string';
+
+const isFilterOptionArray = (value: unknown): value is { label: string; value: string }[] =>
+  Array.isArray(value) && value.every(isFilterOption);
+
+const isFilterOptionArrayRecord = (value: unknown): value is Record<string, { label: string; value: string }[]> =>
+  isRecord(value) && Object.values(value).every(isFilterOptionArray);
+
 const readSavedViewBody = (body: unknown): Omit<SavedFilterView, 'id' | 'editable'> | null => {
   if (!isRecord(body) || typeof body.name !== 'string' || typeof body.type !== 'string') return null;
+  if (body.filters !== undefined && !isRecord(body.filters)) return null;
   const filters = isRecord(body.filters) ? body.filters : {};
+  const queryParams = filters.queryParams === undefined ? {} : filters.queryParams;
+  const selectedFilterOptions = filters.selectedFilterOptions === undefined ? [] : filters.selectedFilterOptions;
+  const selectedFilterSubOptions =
+    filters.selectedFilterSubOptions === undefined ? {} : filters.selectedFilterSubOptions;
+
+  if (
+    !isStringArrayRecord(queryParams) ||
+    !isFilterOptionArray(selectedFilterOptions) ||
+    !isFilterOptionArrayRecord(selectedFilterSubOptions)
+  ) {
+    return null;
+  }
+
   return {
     name: body.name.trim(),
     type: body.type,
     filters: {
-      queryParams: isRecord(filters.queryParams)
-        ? (filters.queryParams as SavedFilterView['filters']['queryParams'])
-        : {},
-      selectedFilterOptions: Array.isArray(filters.selectedFilterOptions)
-        ? (filters.selectedFilterOptions as SavedFilterView['filters']['selectedFilterOptions'])
-        : [],
-      selectedFilterSubOptions: isRecord(filters.selectedFilterSubOptions)
-        ? (filters.selectedFilterSubOptions as SavedFilterView['filters']['selectedFilterSubOptions'])
-        : {},
+      queryParams,
+      selectedFilterOptions: selectedFilterOptions.map(({ label, value }) => ({ label, value })),
+      selectedFilterSubOptions: Object.fromEntries(
+        Object.entries(selectedFilterSubOptions).map(([key, options]) => [
+          key,
+          options.map(({ label, value }) => ({ label, value })),
+        ]),
+      ),
     },
   };
+};
+
+const createViewId = (views: SavedFilterView[]) => {
+  let id: string;
+  do {
+    id = `view_${globalThis.crypto.randomUUID()}`;
+  } while (views.some((view) => view.id === id));
+  return id;
 };
 
 export const reportsMockRoutes: MockRoute[] = [
@@ -400,10 +436,10 @@ export const reportsMockRoutes: MockRoute[] = [
     path: '/filter-view',
     handler: ({ body, adapterStorage }: MockRequest) => {
       const parsed = readSavedViewBody(body);
-      if (!parsed?.name) return fail(400, 'A view name is required.');
+      if (!parsed?.name) return fail(400, 'A view name and valid filters are required.');
       const views = getViews(adapterStorage);
       const created: SavedFilterView = {
-        id: `view_${Date.now()}`,
+        id: createViewId(views),
         editable: true,
         ...parsed,
       };
@@ -415,11 +451,12 @@ export const reportsMockRoutes: MockRoute[] = [
     method: 'PUT',
     path: '/filter-view/:id',
     handler: ({ params, body, adapterStorage }) => {
-      const parsed = readSavedViewBody(body);
-      if (!parsed?.name) return fail(400, 'A view name is required.');
       const views = getViews(adapterStorage);
       const index = views.findIndex((view) => view.id === params.id);
       if (index < 0) return fail(404, 'View not found.');
+      if (!views[index].editable) return fail(403, 'This view cannot be modified.');
+      const parsed = readSavedViewBody(body);
+      if (!parsed?.name) return fail(400, 'A view name and valid filters are required.');
       const updated: SavedFilterView = {
         ...views[index],
         ...parsed,
@@ -437,8 +474,10 @@ export const reportsMockRoutes: MockRoute[] = [
     path: '/filter-view/:id',
     handler: ({ params, adapterStorage }) => {
       const views = getViews(adapterStorage);
+      const index = views.findIndex((view) => view.id === params.id);
+      if (index < 0) return fail(404, 'View not found.');
+      if (!views[index].editable) return fail(403, 'This view cannot be modified.');
       const next = views.filter((view) => view.id !== params.id);
-      if (next.length === views.length) return fail(404, 'View not found.');
       setViews(adapterStorage, next);
       return ok(null, 'View deleted.');
     },
