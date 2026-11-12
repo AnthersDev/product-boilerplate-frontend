@@ -1,16 +1,33 @@
 import React from 'react';
-import { PageLayout } from '@marmeto_engineering/anthers-components';
+import { ListPageLayout } from '@marmeto_engineering/anthers-components';
 
-/** Placeholder analytics page so the sidebar Reports link is a real route. */
+import { reportColumns } from '@/features/reports';
+import { httpClient } from '@/services/api';
+
+/** Sample listing page using Anthers `AdvancedDataTable` (Chromatic default story shape). */
 const Reports = () => (
-  <PageLayout
+  <ListPageLayout
     title="Reports"
-    description="Replace this page with your product’s analytics reports. It exists so the sidebar link has somewhere to go."
-  >
-    <p className="text-body text-zinc-600">
-      No reports yet. Wire this route to your reporting API or Anthers list/table layouts.
-    </p>
-  </PageLayout>
+    description="Example order report powered by Advanced Data Table. Point `apiEndpoint` at your product API when you leave mock mode."
+    advancedDataTableProps={{
+      apiEndpoint: '/reports',
+      apiClient: httpClient,
+      columnsData: reportColumns,
+      searchPlaceholder: 'Search orders...',
+      selectable: true,
+      wrapCard: true,
+      hideCommand: true,
+      emptyState: {
+        title: 'No reports to display',
+        description: 'There are currently no orders matching your filters or criteria.',
+      },
+      dataEmptyState: {
+        title: 'No search results found',
+        description:
+          "We couldn't find any orders matching your search. Try adjusting your search terms or clearing the search to see all orders.",
+      },
+    }}
+  />
 );
 
 export default Reports;
