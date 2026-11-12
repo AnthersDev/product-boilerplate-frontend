@@ -124,6 +124,11 @@ const requireActiveSession = (adapterStorage: Map<symbol, unknown>): ActiveSessi
   return { ok: true, session: state.session };
 };
 
+export const getUnauthorizedSessionResponse = (adapterStorage: Map<symbol, unknown>): MockResponse | null => {
+  const active = requireActiveSession(adapterStorage);
+  return active.ok ? null : active.response;
+};
+
 const writeState = (adapterStorage: Map<symbol, unknown>, state: MockAuthState): boolean => {
   const storage = getAuthStorage(adapterStorage);
   if (storage.useMemoryState) {
