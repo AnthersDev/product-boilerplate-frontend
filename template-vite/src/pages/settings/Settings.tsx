@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Button, Card, PageLayout, SettingListLayout, show } from '@marmeto_engineering/anthers-components';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { PageLayout, SettingListLayout, show, useGlobalSaveContext } from '@marmeto_engineering/anthers-components';
 import { Bell, Settings as SettingsIcon, Users } from 'lucide-react';
 import GeneralSettings, { type GeneralSettingsValues } from './GeneralSettings';
 import NotificationsSettings, { type NotificationsSettingsValues } from './NotificationsSettings';
@@ -124,6 +124,8 @@ const Settings = () => {
   const [generalErrors, setGeneralErrors] = useState<Partial<Record<'appListingUrl' | 'supportEmail', string>>>({});
   const hasChanges = JSON.stringify(savedSettings) !== JSON.stringify(draftSettings);
 
+  const { registerForm, unregisterForm, setFormDirty, triggerVibrate } = useGlobalSaveContext();
+
   const onGeneralChange = <Field extends keyof SettingsValues['general']>(
     field: Field,
     value: SettingsValues['general'][Field],
@@ -154,30 +156,54 @@ const Settings = () => {
     }));
   };
 
-  const onSaveChanges = () => {
+  const onSaveChanges = useCallback(async () => {
     const errors = getSettingsValidationErrors(draftSettings);
     setGeneralErrors(errors);
     if (Object.keys(errors).length > 0) {
       setActiveSection('general');
+      triggerVibrate();
       show('Please correct the highlighted fields before saving.', { type: 'error' });
-      return;
+      throw new Error('Validation failed');
     }
 
     try {
       window.sessionStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(draftSettings));
     } catch {
       show('Settings could not be saved in this browser session.', { type: 'error' });
-      return;
+      throw new Error('Persist failed');
     }
 
     setSavedSettings(draftSettings);
     show('Settings saved for this session.', { type: 'success' });
-  };
+  }, [draftSettings, triggerVibrate]);
 
-  const onDiscardChanges = () => {
+  const onDiscardChanges = useCallback(() => {
     setDraftSettings(savedSettings);
     setGeneralErrors({});
-  };
+  }, [savedSettings]);
+
+  const onSaveChangesRef = useRef(onSaveChanges);
+  onSaveChangesRef.current = onSaveChanges;
+  const onDiscardChangesRef = useRef(onDiscardChanges);
+  onDiscardChangesRef.current = onDiscardChanges;
+
+  useEffect(() => {
+    if (!activeSection) {
+      unregisterForm();
+      return;
+    }
+
+    registerForm(
+      () => onSaveChangesRef.current(),
+      () => onDiscardChangesRef.current(),
+      sectionContent[activeSection].title,
+    );
+    return () => unregisterForm();
+  }, [activeSection, registerForm, unregisterForm]);
+
+  useEffect(() => {
+    setFormDirty(Boolean(activeSection) && hasChanges);
+  }, [activeSection, hasChanges, setFormDirty]);
 
   const onSendInvitation = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -222,33 +248,6 @@ const Settings = () => {
       onBack={() => setActiveSection(null)}
     >
       <div className="space-y-6">
-        {hasChanges && (
-          <Card className="shadow-sm">
-            <Card.Content className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
-              <div>
-                <p
-                  className="text-title max-md:text-label leading-snug font-semibold text-zinc-800"
-                  role="status"
-                  aria-live="polite"
-                >
-                  Unsaved changes
-                </p>
-                <p className="text-label md:text-body mt-1 leading-normal font-light text-zinc-500">
-                  Settings are saved for this browser session.
-                </p>
-              </div>
-              <div className="flex gap-2">
-                <Button type="button" variant="outline" onClick={onDiscardChanges}>
-                  Discard
-                </Button>
-                <Button type="button" variant="primary" onClick={onSaveChanges}>
-                  Save
-                </Button>
-              </div>
-            </Card.Content>
-          </Card>
-        )}
-
         {activeSection === 'general' && (
           <GeneralSettings
             settings={draftSettings.general}
