@@ -88,7 +88,7 @@ const changes = [
       'const fail = (status: number, message: string): MockResponse => ({ status, data: { status: false, message } });\n',
       '',
       homeHandlersPath,
-      'handler: () => ok(FULL_HOME)',
+      'handler: ({ adapterStorage }) => {',
     );
     result = replaceSection(
       result,
@@ -96,22 +96,27 @@ const changes = [
       'export const homeMockRoutes:',
       '',
       homeHandlersPath,
-      'handler: () => ok(FULL_HOME)',
+      'handler: ({ adapterStorage }) => {',
     );
-    return replaceToEnd(
+    result = replaceToEnd(
       result,
       'export const homeMockRoutes:',
       `export const homeMockRoutes: MockRoute[] = [
   {
     method: 'GET',
     path: '/home',
-    handler: () => ok(FULL_HOME),
+    handler: ({ adapterStorage }) => {
+      const unauthorizedResponse = getUnauthorizedSessionResponse(adapterStorage);
+      if (unauthorizedResponse) return unauthorizedResponse;
+      return ok(FULL_HOME);
+    },
   },
 ];
 `,
       homeHandlersPath,
-      'handler: () => ok(FULL_HOME)',
+      'handler: ({ adapterStorage }) => {',
     );
+    return result;
   }),
   update(homeHookPath, (source) => {
     if (!source.includes('useHomeDemoScenario')) {
