@@ -53,12 +53,15 @@ Open http://localhost:3000. The app starts on the login page.
 
 Sign-in uses the Anthers `LoginPage` (magic link by email, plus optional Google) and `SelectOrganizationPage`. The backend keeps the session in HTTP-only cookies, so the app never stores a token. It asks `GET /auth/session` who is signed in.
 
-| Route                 | Who can open it                      | What it does                                                              |
-| --------------------- | ------------------------------------ | ------------------------------------------------------------------------- |
-| `/login`              | Signed-out users                     | Email or Google sign-in. Signed-in users are sent to `/`.                 |
-| `/select-org`         | Signed-in users                      | Choose an organization. With one organization it is picked automatically. |
-| `/`                   | Signed-in users with an organization | Home page in the Anthers `AppLayout` shell (`HomePageLayout` + sample sections). |
-| `/auth/mock-callback` | Mock API only                        | Stands in for opening the magic link from the email.                      |
+| Route                 | Who can open it                      | What it does                                                                                |
+| --------------------- | ------------------------------------ | ------------------------------------------------------------------------------------------- |
+| `/login`              | Signed-out users                     | Email or Google sign-in. Signed-in users are sent to `/`.                                   |
+| `/select-org`         | Signed-in users                      | Choose an organization. With one organization it is picked automatically.                   |
+| `/`                   | Signed-in users with an organization | Home page in the Anthers `AppLayout` shell. Mock demo states: `?home=empty`, `?home=error`. |
+| `/analytics/reports`  | Signed-in users with an organization | Placeholder reports page (sidebar example).                                                 |
+| `/settings`           | Signed-in users with an organization | Placeholder settings page (Day 4 expands this).                                             |
+| `/whats-new`          | Signed-in users with an organization | Placeholder release notes page.                                                             |
+| `/auth/mock-callback` | Mock API only                        | Stands in for opening the magic link from the email.                                        |
 
 Any other path redirects to `/`. If any API call returns 401, the session is cleared and the user goes back to `/login`.
 
@@ -93,6 +96,9 @@ Set `VITE_USE_MOCK_API=false` and `VITE_API_BASE_URL` in `.env.local`, then rest
 | `GET /auth/organization`                  | Organizations the user belongs to                          |
 | `POST /auth/organization/:organizationId` | Switch the session to that organization                    |
 | `POST /auth/logout`                       | End the session                                            |
+| `GET /home`                               | Home page data in `{ status, message, data }` envelope; `data` contains the fields described below |
+
+The `/home` response's `data` follows [`HomePageDataProps`](./src/features/home/types.ts): `title`, `description`, `insights`, `onboarding` (`heading`, `description`, `steps`), `featureCards`, and `partners` (`title`, `description`, `cards`) are required. Insight items require `title` and `value`; onboarding steps require `title`, `description`, and `completed`; feature cards require `heading`, `description`, `imageAlt`, `imageSrc`, `mediaSide`, `mediaWidthPct`, `type`, and `primaryActionLabel`; partner cards require `heading`, `description`, `imageSrc`, and `primaryActionLabel`. Optional fields are `percentageChange`, `previousValue`, `isPositive`, and `tooltipContent` on insights, and `secondaryActionLabel` on feature cards. Return empty arrays (`[]`) for empty `insights`, `onboarding.steps`, `featureCards`, or `partners.cards`; an empty home page has all four collections empty.
 
 Requests are sent with credentials, so if the API is on another origin it must allow credentials in CORS and set cookies that the browser will send back. The magic link should send the user to `/select-org` after it sets the cookies.
 
@@ -106,11 +112,11 @@ Edit `src/config/brand.ts` to set your product's name, logo, login background an
 
 Husky runs these checks automatically, so you don't need to run them by hand. ESLint also runs in the editor on save (see `.vscode/settings.json`), so problems are fixed before you `git add`.
 
-| Hook | Runs | Takes |
-| --- | --- | --- |
-| `pre-commit` | `lint-staged` (ESLint fix and Prettier on the files you staged with `git add`), then `npm run lint` and `npm run type-check` | a few seconds |
-| `pre-push` | `npm run build` | about 15–30 seconds |
-| `commit-msg` | `commitlint` (conventional commit messages) | instant |
+| Hook         | Runs                                                                                                                         | Takes               |
+| ------------ | ---------------------------------------------------------------------------------------------------------------------------- | ------------------- |
+| `pre-commit` | `lint-staged` (ESLint fix and Prettier on the files you staged with `git add`), then `npm run lint` and `npm run type-check` | a few seconds       |
+| `pre-push`   | `npm run build`                                                                                                              | about 15–30 seconds |
+| `commit-msg` | `commitlint` (conventional commit messages)                                                                                  | instant             |
 
 If a hook fails, the commit or push stops and the error is printed. Fix it and try again. In an emergency you can skip hooks with `--no-verify`. CI runs lint and type-check, but not the local pre-push build, commitlint, or staged-file formatting.
 

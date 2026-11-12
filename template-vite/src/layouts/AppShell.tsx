@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { AppLayout, type AppLayoutProps } from '@marmeto_engineering/anthers-components';
-import { ChartNoAxesColumn, FileText, Gift, Home as HomeIcon, LifeBuoy, LogOut, Settings } from 'lucide-react';
+import { AppLayout, Breadcrumbs, type AppLayoutProps } from '@marmeto_engineering/anthers-components';
+import { LogOut } from 'lucide-react';
 
 import { brand } from '@/config';
+import { breadcrumbsForPath, mainNavItems, secondaryNavItems, withActiveNavState } from '@/config/navigation';
 import { useSession, useSignOut } from '@/features/auth';
 
 type ShellAppLayoutProps = Extract<AppLayoutProps, { showAppList?: false }>;
@@ -16,50 +17,18 @@ const AppShell = () => {
 
   const userName = [session?.user.firstName, session?.user.lastName].filter(Boolean).join(' ') || 'User';
 
-  const mainSidebarMenuItems: NonNullable<ShellAppLayoutProps['mainSidebarMenuItems']> = [
-    {
-      id: 'home',
-      label: 'Home',
-      icon: <HomeIcon size={16} strokeWidth={1.75} />,
-      href: '/',
-      isActive: pathname === '/',
-    },
-    {
-      id: 'analytics',
-      label: 'Analytics',
-      icon: <ChartNoAxesColumn size={16} strokeWidth={1.75} />,
-      isExpanded: pathname.startsWith('/analytics'),
-      subItems: [
-        {
-          id: 'reports',
-          label: 'Reports',
-          icon: <FileText size={16} strokeWidth={1.75} />,
-          href: '#',
-        },
-      ],
-    },
-  ];
+  const mainSidebarMenuItems = useMemo(
+    () => withActiveNavState(mainNavItems, pathname) as NonNullable<ShellAppLayoutProps['mainSidebarMenuItems']>,
+    [pathname],
+  );
 
-  const secondarySidebarMenuItems: NonNullable<ShellAppLayoutProps['secondarySidebarMenuItems']> = [
-    {
-      id: 'settings',
-      label: 'Settings',
-      icon: <Settings size={16} strokeWidth={1.75} />,
-      href: '#',
-    },
-    {
-      id: 'help',
-      label: 'Help Center',
-      icon: <LifeBuoy size={16} strokeWidth={1.75} />,
-      href: '#',
-    },
-    {
-      id: 'whats-new',
-      label: "What's New",
-      icon: <Gift size={16} strokeWidth={1.75} />,
-      href: '#',
-    },
-  ];
+  const secondarySidebarMenuItems = useMemo(
+    () =>
+      withActiveNavState(secondaryNavItems, pathname) as NonNullable<ShellAppLayoutProps['secondarySidebarMenuItems']>,
+    [pathname],
+  );
+
+  const crumbs = useMemo(() => breadcrumbsForPath(pathname), [pathname]);
 
   const userMenuItems: NonNullable<ShellAppLayoutProps['userMenuItems']> = [
     {
@@ -98,6 +67,7 @@ const AppShell = () => {
       mainSidebarMenuItems={mainSidebarMenuItems}
       secondarySidebarMenuItems={secondarySidebarMenuItems}
       sidebarFooter={<></>}
+      bottomSlot={crumbs.length > 0 ? <Breadcrumbs crumbs={crumbs} /> : undefined}
     >
       {signOut.isError && (
         <p role="alert" className="text-small mx-auto mt-4 max-w-2xl px-6 text-red-600">

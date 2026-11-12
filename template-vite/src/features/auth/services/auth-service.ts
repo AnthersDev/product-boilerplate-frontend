@@ -40,6 +40,9 @@ export const authQueryKeys = {
 export const clearOrganizationCache = (queryClient: QueryClient) =>
   queryClient.removeQueries({ queryKey: authQueryKeys.organizations() });
 
+/** Home data belongs to the current account and organization. */
+export const clearHomeCache = (queryClient: QueryClient) => queryClient.removeQueries({ queryKey: ['home'] });
+
 /** Resolves to `null` when signed out (401) instead of throwing. */
 export const fetchSession = async (queryClient: QueryClient, signal?: AbortSignal): Promise<AuthSession | null> => {
   try {
@@ -48,6 +51,7 @@ export const fetchSession = async (queryClient: QueryClient, signal?: AbortSigna
   } catch (error) {
     if (error instanceof ApiError && error.status === 401) {
       clearOrganizationCache(queryClient);
+      clearHomeCache(queryClient);
       return null;
     }
     throw error;

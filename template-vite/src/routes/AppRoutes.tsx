@@ -7,6 +7,9 @@ import { GuestOnly, RequireSession } from './RequireSession';
 
 const AppShell = lazy(() => import('@/layouts/AppShell'));
 const Home = lazy(() => import('@/pages/Home'));
+const Reports = lazy(() => import('@/pages/analytics/Reports'));
+const Settings = lazy(() => import('@/pages/settings/Settings'));
+const WhatsNew = lazy(() => import('@/pages/WhatsNew'));
 const Login = lazy(() => import('@/pages/auth/Login'));
 const MockSignIn = lazy(() => import('@/pages/auth/MockSignIn'));
 const SelectOrganization = lazy(() => import('@/pages/auth/SelectOrganization'));
@@ -26,6 +29,9 @@ const AppRoutes = () => (
     <Route element={<RequireSession requireOrganization />}>
       <Route element={<AppShell />}>
         <Route path="/" element={<Home />} />
+        <Route path="/analytics/reports" element={<Reports />} />
+        <Route path="/settings" element={<Settings />} />
+        <Route path="/whats-new" element={<WhatsNew />} />
       </Route>
     </Route>
 

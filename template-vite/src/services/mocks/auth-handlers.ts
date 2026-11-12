@@ -1,16 +1,7 @@
 import type { AuthSession, Organization } from '@/features/auth';
 
+import { MOCK_AUTH_EMAILS } from './mock-auth-emails';
 import type { MockResponse, MockRoute } from './types';
-
-/**
- * Test emails that trigger specific states. Any other email signs in as a user with three organizations.
- */
-export const MOCK_AUTH_EMAILS = {
-  signInError: 'fail@example.com',
-  noOrganizations: 'no-orgs@example.com',
-  singleOrganization: 'one-org@example.com',
-  organizationsError: 'org-error@example.com',
-} as const;
 
 const DEFAULT_EMAIL = 'demo@example.com';
 const STORAGE_KEY = 'mock-api:auth';
