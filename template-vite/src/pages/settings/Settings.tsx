@@ -174,6 +174,7 @@ const Settings = () => {
     const errors = getSettingsValidationErrors(draftSettings);
     setGeneralErrors(errors);
     if (Object.keys(errors).length > 0) {
+      setActiveSection('general');
       show('Please correct the highlighted fields before saving.', { type: 'error' });
       return;
     }
