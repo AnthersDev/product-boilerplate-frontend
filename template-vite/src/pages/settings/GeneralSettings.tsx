@@ -178,11 +178,11 @@ const FileUploadField = ({
         onChange={(event) => onUploadFilesSelected(event.currentTarget.files)}
       />
       <Upload className="text-gray-600" size={24} strokeWidth={1.75} aria-hidden="true" />
-      <span className="text-title mt-3 font-semibold leading-snug text-zinc-800 max-md:text-label">{title}</span>
-      <span className="text-label mt-1 leading-normal text-zinc-500 md:text-body">
+      <span className="text-title max-md:text-label mt-3 leading-snug font-semibold text-zinc-800">{title}</span>
+      <span className="text-label md:text-body mt-1 leading-normal text-zinc-500">
         {selectedFiles || 'Drag & drop files here or click to browse'}
       </span>
-      <span id={`${id}-description`} className="text-label mt-2 leading-normal text-zinc-500 md:text-body">
+      <span id={`${id}-description`} className="text-label md:text-body mt-2 leading-normal text-zinc-500">
         {description}
       </span>
     </label>

@@ -58,8 +58,8 @@ const NotificationPreference = ({ id, title, description, checked, onChange }: N
       checked={checked}
       label={
         <div>
-          <span className="text-title font-semibold leading-snug text-zinc-800 max-md:text-label">{title}</span>
-          <p className="text-label mt-1 leading-normal font-light text-zinc-500 md:text-body">{description}</p>
+          <span className="text-title max-md:text-label leading-snug font-semibold text-zinc-800">{title}</span>
+          <p className="text-label md:text-body mt-1 leading-normal font-light text-zinc-500">{description}</p>
         </div>
       }
       onChange={onChange}

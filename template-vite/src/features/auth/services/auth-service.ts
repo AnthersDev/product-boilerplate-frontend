@@ -1,19 +1,11 @@
 import { queryOptions, type QueryClient } from '@tanstack/react-query';
 
 import { env } from '@/libs/env';
-import { ApiError, httpClient, type ApiEnvelope } from '@/services/api';
+import { AUTH_ENDPOINTS, ApiError, authClient, httpClient, refreshSession, type ApiEnvelope } from '@/services/api';
 
 import type { AuthSession, Organization } from '../types';
 
-export const AUTH_ENDPOINTS = {
-  signIn: '/auth/sso',
-  session: '/auth/session',
-  signOut: '/auth/logout',
-  organizations: '/auth/organization',
-  selectOrganization: (organizationId: string) => `/auth/organization/${encodeURIComponent(organizationId)}`,
-  /** Mock API only: stands in for opening the magic link from the email. */
-  mockVerify: '/auth/mock/verify',
-} as const;
+export { AUTH_ENDPOINTS };
 
 /** Absolute URL for Anthers `LoginPage`, which posts with its own axios call instead of `httpClient`. */
 export const signInEndpoint = `${env.apiBaseUrl.replace(/\/+$/, '')}${AUTH_ENDPOINTS.signIn}`;
@@ -43,16 +35,22 @@ export const clearOrganizationCache = (queryClient: QueryClient) =>
 /** Home data belongs to the current account and organization. */
 export const clearHomeCache = (queryClient: QueryClient) => queryClient.removeQueries({ queryKey: ['home'] });
 
-/** Resolves to `null` when signed out (401) instead of throwing. */
+/**
+ * Resolves to `null` when signed out.
+ * On 401, tries one refresh (Ping pattern) before treating the user as signed out.
+ */
 export const fetchSession = async (queryClient: QueryClient, signal?: AbortSignal): Promise<AuthSession | null> => {
   try {
-    const { data } = await httpClient.get<ApiEnvelope<AuthSession>>(AUTH_ENDPOINTS.session, { signal });
+    const { data } = await authClient.get<ApiEnvelope<AuthSession>>(AUTH_ENDPOINTS.session, { signal });
     return data.data;
   } catch (error) {
     if (error instanceof ApiError && error.status === 401) {
-      clearOrganizationCache(queryClient);
-      clearHomeCache(queryClient);
-      return null;
+      const refreshed = await refreshSession();
+      if (!refreshed) {
+        clearOrganizationCache(queryClient);
+        clearHomeCache(queryClient);
+      }
+      return refreshed;
     }
     throw error;
   }
@@ -70,12 +68,17 @@ export const selectOrganization = async (organizationId: string): Promise<AuthSe
 };
 
 export const signOut = async (): Promise<void> => {
-  await httpClient.post(AUTH_ENDPOINTS.signOut);
+  await authClient.post(AUTH_ENDPOINTS.signOut);
 };
 
 export const completeMockSignIn = async (): Promise<AuthSession> => {
-  const { data } = await httpClient.post<ApiEnvelope<AuthSession>>(AUTH_ENDPOINTS.mockVerify);
+  const { data } = await authClient.post<ApiEnvelope<AuthSession>>(AUTH_ENDPOINTS.mockVerify);
   return data.data;
+};
+
+/** Mock API only: force the next authenticated request to 401 so the refresh interceptor can be exercised. */
+export const expireMockAccess = async (): Promise<void> => {
+  await authClient.post(AUTH_ENDPOINTS.mockExpireAccess);
 };
 
 export const sessionQueryOptions = () =>

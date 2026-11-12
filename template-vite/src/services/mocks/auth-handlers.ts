@@ -21,6 +21,8 @@ const PERMISSIONS_BY_ROLE: Record<string, string[]> = {
 interface MockAuthState {
   pendingEmail: string | null;
   session: AuthSession | null;
+  /** When true, authenticated routes return 401 until `/auth/refresh-token` succeeds. */
+  accessExpired: boolean;
 }
 
 interface MockAuthStorage {
@@ -55,9 +57,16 @@ const isAuthSession = (value: unknown): value is AuthSession => {
   );
 };
 
-const isMockAuthState = (value: unknown): value is MockAuthState => {
-  if (!isRecord(value) || !isNullableString(value.pendingEmail)) return false;
-  return value.session === null || isAuthSession(value.session);
+const emptyState = (): MockAuthState => ({ pendingEmail: null, session: null, accessExpired: false });
+
+const parseMockAuthState = (value: unknown): MockAuthState | null => {
+  if (!isRecord(value) || !isNullableString(value.pendingEmail)) return null;
+  if (value.session !== null && !isAuthSession(value.session)) return null;
+  return {
+    pendingEmail: value.pendingEmail,
+    session: value.session,
+    accessExpired: value.accessExpired === true,
+  };
 };
 
 // sessionStorage stands in for the session cookie so a reload keeps you signed in, like the real API.
@@ -68,7 +77,7 @@ const getAuthStorage = (adapterStorage: Map<symbol, unknown>): MockAuthStorage =
   if (existing) return existing as MockAuthStorage;
 
   const storage: MockAuthStorage = {
-    memoryState: { pendingEmail: null, session: null },
+    memoryState: emptyState(),
     useMemoryState: false,
     sessionPersisted: false,
   };
@@ -90,8 +99,8 @@ const readState = (adapterStorage: Map<symbol, unknown>): MockAuthState => {
 
   if (raw) {
     try {
-      const state: unknown = JSON.parse(raw);
-      if (isMockAuthState(state)) {
+      const state = parseMockAuthState(JSON.parse(raw));
+      if (state) {
         storage.memoryState = state;
         storage.sessionPersisted = state.session !== null;
         return state;
@@ -101,9 +110,18 @@ const readState = (adapterStorage: Map<symbol, unknown>): MockAuthState => {
     }
   }
 
-  storage.memoryState = { pendingEmail: null, session: null };
+  storage.memoryState = emptyState();
   storage.sessionPersisted = false;
   return storage.memoryState;
+};
+
+type ActiveSessionResult = { ok: true; session: AuthSession } | { ok: false; response: MockResponse };
+
+/** Session present and access cookie still valid. */
+const requireActiveSession = (adapterStorage: Map<symbol, unknown>): ActiveSessionResult => {
+  const state = readState(adapterStorage);
+  if (!state.session || state.accessExpired) return { ok: false, response: unauthorized() };
+  return { ok: true, session: state.session };
 };
 
 const writeState = (adapterStorage: Map<symbol, unknown>, state: MockAuthState): boolean => {
@@ -162,7 +180,10 @@ export const authMockRoutes: MockRoute[] = [
       if (email === MOCK_AUTH_EMAILS.signInError) {
         return fail(400, 'We could not find an account for this email.');
       }
-      writeState(adapterStorage, { ...readState(adapterStorage), pendingEmail: email || DEFAULT_EMAIL });
+      writeState(adapterStorage, {
+        ...readState(adapterStorage),
+        pendingEmail: email || DEFAULT_EMAIL,
+      });
       return ok(null, 'Magic link sent.');
     },
   },
@@ -173,46 +194,68 @@ export const authMockRoutes: MockRoute[] = [
       const state = readState(adapterStorage);
       const email = state.pendingEmail ?? DEFAULT_EMAIL;
       const session: AuthSession = { type: 'base', organizationId: null, user: toUser(email), permissions: [] };
-      writeState(adapterStorage, { pendingEmail: null, session });
+      writeState(adapterStorage, { pendingEmail: null, session, accessExpired: false });
       return ok(session);
+    },
+  },
+  {
+    method: 'POST',
+    path: '/auth/mock/expire-access',
+    handler: ({ adapterStorage }) => {
+      const state = readState(adapterStorage);
+      if (!state.session) return unauthorized();
+      writeState(adapterStorage, { ...state, accessExpired: true });
+      return ok(null, 'Access cookie marked expired.');
+    },
+  },
+  {
+    method: 'POST',
+    path: '/auth/refresh-token',
+    handler: ({ adapterStorage }) => {
+      const state = readState(adapterStorage);
+      // Refresh cookie is gone when there is no session at all.
+      if (!state.session) return unauthorized();
+      writeState(adapterStorage, { ...state, accessExpired: false });
+      return ok(state.session);
     },
   },
   {
     method: 'GET',
     path: '/auth/session',
     handler: ({ adapterStorage }) => {
-      const { session } = readState(adapterStorage);
-      return session ? ok(session) : unauthorized();
+      const active = requireActiveSession(adapterStorage);
+      return active.ok ? ok(active.session) : active.response;
     },
   },
   {
     method: 'GET',
     path: '/auth/organization',
     handler: ({ adapterStorage }) => {
-      const { session } = readState(adapterStorage);
-      if (!session) return unauthorized();
-      if (session.user.email === MOCK_AUTH_EMAILS.organizationsError) {
+      const active = requireActiveSession(adapterStorage);
+      if (!active.ok) return active.response;
+      if (active.session.user.email === MOCK_AUTH_EMAILS.organizationsError) {
         return fail(500, 'Could not load organizations.');
       }
-      return ok(organizationsFor(session.user.email));
+      return ok(organizationsFor(active.session.user.email));
     },
   },
   {
     method: 'POST',
     path: '/auth/organization/:organizationId',
     handler: ({ params, adapterStorage }) => {
+      const active = requireActiveSession(adapterStorage);
+      if (!active.ok) return active.response;
       const state = readState(adapterStorage);
-      if (!state.session) return unauthorized();
-      const organization = organizationsFor(state.session.user.email).find(({ id }) => id === params.organizationId);
+      const organization = organizationsFor(active.session.user.email).find(({ id }) => id === params.organizationId);
       if (!organization) return fail(404, 'Organization not found.');
 
       const session: AuthSession = {
-        ...state.session,
+        ...active.session,
         type: 'organization',
         organizationId: organization.id,
         permissions: PERMISSIONS_BY_ROLE[organization.role] ?? [],
       };
-      writeState(adapterStorage, { ...state, session });
+      writeState(adapterStorage, { ...state, session, accessExpired: false });
       return ok(session);
     },
   },
@@ -223,7 +266,7 @@ export const authMockRoutes: MockRoute[] = [
       const previousState = readState(adapterStorage);
       const storage = getAuthStorage(adapterStorage);
       const isSessionPersisted = storage.sessionPersisted;
-      if (!writeState(adapterStorage, { pendingEmail: null, session: null }) && isSessionPersisted) {
+      if (!writeState(adapterStorage, emptyState()) && isSessionPersisted) {
         storage.memoryState = previousState;
         return fail(500, 'Could not persist logout.');
       }

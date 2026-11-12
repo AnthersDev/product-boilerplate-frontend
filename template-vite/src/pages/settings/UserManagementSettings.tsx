@@ -55,18 +55,16 @@ const UserManagementSettings = ({
     <SettingLayout title="Workspace roles" description="Use roles to control what teammates can access.">
       <dl className="divide-y divide-zinc-100">
         <div className="py-3 sm:flex sm:gap-4">
-          <dt className="text-title w-24 shrink-0 font-semibold leading-snug text-zinc-800 max-md:text-label">
-            Admin
-          </dt>
-          <dd className="text-label leading-normal font-light text-zinc-500 md:text-body">
+          <dt className="text-title max-md:text-label w-24 shrink-0 leading-snug font-semibold text-zinc-800">Admin</dt>
+          <dd className="text-label md:text-body leading-normal font-light text-zinc-500">
             Can manage workspace settings and invite members.
           </dd>
         </div>
         <div className="py-3 sm:flex sm:gap-4">
-          <dt className="text-title w-24 shrink-0 font-semibold leading-snug text-zinc-800 max-md:text-label">
+          <dt className="text-title max-md:text-label w-24 shrink-0 leading-snug font-semibold text-zinc-800">
             Member
           </dt>
-          <dd className="text-label leading-normal font-light text-zinc-500 md:text-body">
+          <dd className="text-label md:text-body leading-normal font-light text-zinc-500">
             Can access reports and day-to-day workspace tools.
           </dd>
         </div>

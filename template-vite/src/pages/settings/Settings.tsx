@@ -1,18 +1,9 @@
 import React, { useState } from 'react';
-import {
-  Button,
-  Card,
-  PageLayout,
-  SettingListLayout,
-  show,
-} from '@marmeto_engineering/anthers-components';
+import { Button, Card, PageLayout, SettingListLayout, show } from '@marmeto_engineering/anthers-components';
 import { Bell, Settings as SettingsIcon, Users } from 'lucide-react';
 import GeneralSettings, { type GeneralSettingsValues } from './GeneralSettings';
 import NotificationsSettings, { type NotificationsSettingsValues } from './NotificationsSettings';
-import UserManagementSettings, {
-  type UserManagementSettingsValues,
-  type MemberRole,
-} from './UserManagementSettings';
+import UserManagementSettings, { type UserManagementSettingsValues } from './UserManagementSettings';
 
 type SettingsSection = 'general' | 'user-management' | 'notifications';
 
@@ -236,13 +227,13 @@ const Settings = () => {
             <Card.Content className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
               <div>
                 <p
-                  className="text-title font-semibold leading-snug text-zinc-800 max-md:text-label"
+                  className="text-title max-md:text-label leading-snug font-semibold text-zinc-800"
                   role="status"
                   aria-live="polite"
                 >
                   Unsaved changes
                 </p>
-                <p className="text-label mt-1 leading-normal font-light text-zinc-500 md:text-body">
+                <p className="text-label md:text-body mt-1 leading-normal font-light text-zinc-500">
                   Settings are saved for this browser session.
                 </p>
               </div>
