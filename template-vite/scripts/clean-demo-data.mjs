@@ -280,15 +280,12 @@ const changes = [
       'export const HomePageSections',
     );
   }),
-  update(readmePath, (source) =>
-    replaceOnce(
-      source,
-      '| `/` | Signed-in + org | Home (Anthers shell). Mock demos: `?home=empty`, `?home=error` |',
-      '| `/` | Signed-in + org | Home (Anthers shell) |',
-      readmePath,
-      '| `/` | Signed-in + org | Home (Anthers shell) |',
-    ),
-  ),
+  update(readmePath, (source) => {
+    const demoDescription = 'Home (Anthers shell). Mock demos: `?home=empty`, `?home=error`';
+    if (!source.includes(demoDescription)) return source;
+
+    return replaceOnce(source, demoDescription, 'Home (Anthers shell)', readmePath, 'Home (Anthers shell)');
+  }),
 ];
 
 const changed = changes.filter(([relativePath, content]) => content !== read(relativePath));
