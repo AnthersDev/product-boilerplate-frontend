@@ -1,5 +1,5 @@
 import React from 'react';
-import { Badge, Dropdown, Tag } from '@marmeto_engineering/anthers-components';
+import { Badge, Dropdown } from '@marmeto_engineering/anthers-components';
 import { Download, EllipsisVertical, Pencil, Share2, Trash2 } from 'lucide-react';
 
 import type { ReportOrderEdge } from './types';
@@ -25,19 +25,6 @@ export const reportColumns = [
     key: 'channel',
     header: 'Channel',
     render: (item: ReportOrderEdge) => <span className="text-zinc-500">{item.node.channel}</span>,
-  },
-  {
-    key: 'tags',
-    header: 'Tags',
-    render: (item: ReportOrderEdge) => (
-      <div className="flex flex-wrap items-center gap-1">
-        {item.node.tags.map((tag) => (
-          <Tag key={tag} size="sm">
-            {tag}
-          </Tag>
-        ))}
-      </div>
-    ),
   },
   {
     key: 'total',
