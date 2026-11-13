@@ -13,8 +13,23 @@ const ORGANIZATIONS: Organization[] = [
 ];
 
 const PERMISSIONS_BY_ROLE: Record<string, string[]> = {
-  owner: ['dashboard:view', 'settings:manage', 'users:manage'],
-  admin: ['dashboard:view', 'settings:manage'],
+  owner: [
+    'dashboard:view',
+    'settings:manage',
+    'users:manage',
+    'settings.userAndPermissions.manage',
+    'settings.userAndPermissions.view',
+    'settings.general.manage',
+    'settings.notifications.manage',
+  ],
+  admin: [
+    'dashboard:view',
+    'settings:manage',
+    'settings.userAndPermissions.manage',
+    'settings.userAndPermissions.view',
+    'settings.general.manage',
+    'settings.notifications.manage',
+  ],
   member: ['dashboard:view'],
 };
 
@@ -127,6 +142,12 @@ const requireActiveSession = (adapterStorage: Map<symbol, unknown>): ActiveSessi
 export const getUnauthorizedSessionResponse = (adapterStorage: Map<symbol, unknown>): MockResponse | null => {
   const active = requireActiveSession(adapterStorage);
   return active.ok ? null : active.response;
+};
+
+/** Active session when signed in with a valid access cookie; otherwise `null`. */
+export const getActiveSession = (adapterStorage: Map<symbol, unknown>): AuthSession | null => {
+  const active = requireActiveSession(adapterStorage);
+  return active.ok ? active.session : null;
 };
 
 const writeState = (adapterStorage: Map<symbol, unknown>, state: MockAuthState): boolean => {
