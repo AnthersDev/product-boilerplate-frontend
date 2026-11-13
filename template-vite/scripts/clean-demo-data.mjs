@@ -284,13 +284,7 @@ const changes = [
     const demoDescription = 'Home (Anthers shell). Mock demos: `?home=empty`, `?home=error`';
     if (!source.includes(demoDescription)) return source;
 
-    return replaceOnce(
-      source,
-      demoDescription,
-      'Home (Anthers shell)',
-      readmePath,
-      'Home (Anthers shell)',
-    );
+    return replaceOnce(source, demoDescription, 'Home (Anthers shell)', readmePath, 'Home (Anthers shell)');
   }),
 ];
 
