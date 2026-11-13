@@ -1,16 +1,13 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { PageLayout, SettingListLayout, show, useGlobalSaveContext } from '@marmeto_engineering/anthers-components';
 import { Bell, Settings as SettingsIcon, Users } from 'lucide-react';
 import GeneralSettings, { type GeneralSettingsValues } from './GeneralSettings';
-import NotificationsSettings, { type NotificationsSettingsValues } from './NotificationsSettings';
-import UserManagementSettings, { type UserManagementSettingsValues } from './UserManagementSettings';
 
-type SettingsSection = 'general' | 'user-management' | 'notifications';
+type SettingsSection = 'general';
 
 interface SettingsValues {
   general: GeneralSettingsValues;
-  userManagement: UserManagementSettingsValues;
-  notifications: NotificationsSettingsValues;
 }
 
 const createInitialSettings = (): SettingsValues => ({
@@ -23,15 +20,6 @@ const createInitialSettings = (): SettingsValues => ({
     brandFavicon: '',
     brandDocuments: [],
   },
-  userManagement: {
-    inviteEmail: '',
-    defaultRole: 'Member',
-  },
-  notifications: {
-    securityAlerts: true,
-    productUpdates: false,
-    weeklySummary: true,
-  },
 });
 
 const SETTINGS_STORAGE_KEY = 'product-boilerplate-settings';
@@ -39,16 +27,11 @@ const SETTINGS_STORAGE_KEY = 'product-boilerplate-settings';
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null;
 
 const isSettingsValues = (value: unknown): value is SettingsValues => {
-  if (
-    !isRecord(value) ||
-    !isRecord(value.general) ||
-    !isRecord(value.userManagement) ||
-    !isRecord(value.notifications)
-  ) {
+  if (!isRecord(value) || !isRecord(value.general)) {
     return false;
   }
 
-  const { general, userManagement, notifications } = value;
+  const { general } = value;
   return (
     typeof general.workspaceName === 'string' &&
     typeof general.appListingUrl === 'string' &&
@@ -57,12 +40,7 @@ const isSettingsValues = (value: unknown): value is SettingsValues => {
     typeof general.brandLogo === 'string' &&
     typeof general.brandFavicon === 'string' &&
     Array.isArray(general.brandDocuments) &&
-    general.brandDocuments.every((document) => typeof document === 'string') &&
-    typeof userManagement.inviteEmail === 'string' &&
-    (userManagement.defaultRole === 'Admin' || userManagement.defaultRole === 'Member') &&
-    typeof notifications.securityAlerts === 'boolean' &&
-    typeof notifications.productUpdates === 'boolean' &&
-    typeof notifications.weeklySummary === 'boolean'
+    general.brandDocuments.every((document) => typeof document === 'string')
   );
 };
 
@@ -107,17 +85,10 @@ const sectionContent: Record<SettingsSection, { title: string; description: stri
     description:
       'Manage your account preferences and basic settings here. You can update your profile information and configure default behaviors.',
   },
-  'user-management': {
-    title: 'User management',
-    description: 'Invite teammates and choose the default role for new members.',
-  },
-  notifications: {
-    title: 'Notifications',
-    description: 'Choose which updates and reminders are sent to your inbox.',
-  },
 };
 
 const Settings = () => {
+  const navigate = useNavigate();
   const [activeSection, setActiveSection] = useState<SettingsSection | null>(null);
   const [savedSettings, setSavedSettings] = useState(loadSettings);
   const [draftSettings, setDraftSettings] = useState(savedSettings);
@@ -137,23 +108,6 @@ const Settings = () => {
     if (field === 'appListingUrl' || field === 'supportEmail') {
       setGeneralErrors((current) => ({ ...current, [field]: undefined }));
     }
-  };
-
-  const onUpdateUserManagement = <Field extends keyof SettingsValues['userManagement']>(
-    field: Field,
-    value: SettingsValues['userManagement'][Field],
-  ) => {
-    setDraftSettings((current) => ({
-      ...current,
-      userManagement: { ...current.userManagement, [field]: value },
-    }));
-  };
-
-  const onUpdateNotification = (field: keyof SettingsValues['notifications'], checked: boolean) => {
-    setDraftSettings((current) => ({
-      ...current,
-      notifications: { ...current.notifications, [field]: checked },
-    }));
   };
 
   const onSaveChanges = useCallback(async () => {
@@ -205,12 +159,6 @@ const Settings = () => {
     setFormDirty(Boolean(activeSection) && hasChanges);
   }, [activeSection, hasChanges, setFormDirty]);
 
-  const onSendInvitation = (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    show(`Invitation prepared for ${draftSettings.userManagement.inviteEmail} (demo).`, { type: 'success' });
-    onUpdateUserManagement('inviteEmail', '');
-  };
-
   if (!activeSection) {
     return (
       <SettingListLayout
@@ -226,13 +174,13 @@ const Settings = () => {
             icon: <Users className="text-gray-600" size={24} strokeWidth={1.75} />,
             title: 'User management',
             description: 'Invite users and manage their access.',
-            onClick: () => setActiveSection('user-management'),
+            onClick: () => navigate('/settings/users'),
           },
           {
             icon: <Bell className="text-gray-600" size={24} strokeWidth={1.75} />,
             title: 'Notifications',
-            description: 'Choose which updates are sent to your inbox.',
-            onClick: () => setActiveSection('notifications'),
+            description: 'View and manage your email notifications.',
+            onClick: () => navigate('/settings/notifications'),
           },
         ]}
       />
@@ -255,19 +203,6 @@ const Settings = () => {
             errors={generalErrors}
             onChange={onGeneralChange}
           />
-        )}
-
-        {activeSection === 'user-management' && (
-          <UserManagementSettings
-            settings={draftSettings.userManagement}
-            onInviteEmailChange={(email) => onUpdateUserManagement('inviteEmail', email)}
-            onDefaultRoleChange={(role) => onUpdateUserManagement('defaultRole', role)}
-            onSendInvitation={onSendInvitation}
-          />
-        )}
-
-        {activeSection === 'notifications' && (
-          <NotificationsSettings settings={draftSettings.notifications} onChange={onUpdateNotification} />
         )}
       </div>
     </PageLayout>
