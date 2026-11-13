@@ -1,44 +1,19 @@
-# React Vite TypeScript Starter
+# Product boilerplate frontend
 
-This project was generated using [create-awesome-node-app](https://www.npmjs.com/package/create-awesome-node-app). **DON'T USE THIS TEMPLATE AS IT!** Generate yours using the command and following the options in the interactive menu. Check the docs for more information!
+Vite + React 19 + TypeScript app template for Marmeto / Anthers product frontends. It ships with cookie-based auth, Anthers UI, React Query, Axios, feature-based folders, and a mock API for local work without a backend.
 
-## Features
+---
 
-- ⚡️ **Instant HMR** - use [Vite](https://vitejs.dev/) on dev (no more refresh!)
-- ⚛ React - [React](https://reactjs.org/) is used for UI
-- 🦾 [TypeScript](https://www.typescriptlang.org/) - type safe
-- 🏗️ **Feature-Based Architecture** - Scalable and maintainable code organization
-- 🔒 **Encapsulated Features** - Self-contained modules with clear boundaries
-- 🎯 **Domain-Driven Design** - Code organized around business capabilities
+## For developers
 
-## Architecture
+Use this section when you are building or extending an app from this template.
 
-This template uses a Feature-Based Architecture inspired by Screaming Architecture and Domain-Driven Design principles. The codebase is organized around business capabilities rather than technical concerns, making it:
+### Prerequisites
 
-- 📦 **Modular**: Each feature is self-contained
-- 🔄 **Maintainable**: Changes are isolated to specific features
-- 🚀 **Scalable**: Easy to add new features without affecting existing ones
-- 🎨 **Clear**: Structure reflects business capabilities
+- Node **24** (see `.node-version`; `fnm use` is enough)
+- npm access to the private package `@marmeto_engineering/anthers-components` (ask in `#engineering` for org access)
 
-For detailed information about the architecture, see [Project Structure](./docs/PROJECT_STRUCTURE.md).
-
-## Extra documentation
-
-You can find useful information such as project structure, available scripts and much more in the [docs](./docs) folder!
-
-## Pre-packed
-
-### Dev tools
-
-- [TypeScript](https://www.typescriptlang.org/)
-- [eslint](https://eslint.org/) - Linting utility for JavaScript and JSX
-- [prettier](https://prettier.io/) - Opinionated code formatter
-- [husky](https://www.npmjs.com/package/husky) - Git hooks made easy
-- [lint-staged](https://www.npmjs.com/package/lint-staged) - Run linters against staged git files and don't let 💩 slip into your code base!
-
-## Quickstart
-
-`@marmeto_engineering/anthers-components` is a private package. Run `npm login` once per machine with an npm account in the `marmeto_engineering` org (ask in #engineering for access); npm then reads the package with that login. In CI the token comes from the Actions secret `NPM_TOKEN_READ_ONLY`.
+### Quickstart
 
 ```sh
 fnm use
@@ -47,101 +22,206 @@ npm install
 npm run dev
 ```
 
-Open http://localhost:3000. The app starts on the login page.
+Open http://localhost:3000. The app starts on the login page. Copy `.env.example` to `.env.local` when you need to override defaults (create-frontend does this for new projects).
 
-## Authentication
+`@marmeto_engineering/anthers-components` is private. Local installs use your npm login; CI uses the `NPM_TOKEN_READ_ONLY` secret.
 
-Sign-in uses the Anthers `LoginPage` (magic link by email, plus optional Google) and `SelectOrganizationPage`. The backend keeps the session in HTTP-only cookies, so the app never stores a token. It asks `GET /auth/session` who is signed in.
+### What’s included
 
-| Route                 | Who can open it                      | What it does                                                                                |
-| --------------------- | ------------------------------------ | ------------------------------------------------------------------------------------------- |
-| `/login`              | Signed-out users                     | Email or Google sign-in. Signed-in users are sent to `/`.                                   |
-| `/select-org`         | Signed-in users                      | Choose an organization. With one organization it is picked automatically.                   |
-| `/`                   | Signed-in users with an organization | Home page in the Anthers `AppLayout` shell. Mock demo states: `?home=empty`, `?home=error`. |
-| `/analytics/reports`  | Signed-in users with an organization | Placeholder reports page (sidebar example).                                                 |
-| `/settings`           | Signed-in users with an organization | Placeholder settings page (Day 4 expands this).                                             |
-| `/whats-new`          | Signed-in users with an organization | Placeholder release notes page.                                                             |
-| `/auth/mock-callback` | Mock API only                        | Stands in for opening the magic link from the email.                                        |
+| Area | Stack / location |
+| --- | --- |
+| UI | React 19, Anthers components, Tailwind 4, Lucide icons |
+| Data | Axios (`httpClient` + `authClient`), TanStack Query |
+| Auth | Magic link + optional Google SSO, org picker, cookie session + refresh |
+| Structure | Feature folders under `src/features/*`, pages under `src/pages/*` |
+| Local API | Mock routes in `src/services/mocks` (on by default in `npm run dev`) |
 
-Any other path redirects to `/`. If any API call returns 401, the session is cleared and the user goes back to `/login`.
+More detail: [docs/PROJECT_STRUCTURE.md](./docs/PROJECT_STRUCTURE.md), [docs/](./docs).
 
-The code lives in `src/features/auth` (API calls and React Query hooks), `src/pages/auth` (screens) and `src/routes/RequireSession.tsx` (route guards). Wrap new signed-in routes in `<RequireSession requireOrganization />` in `src/routes/AppRoutes.tsx`.
+### App routes
 
-### Signing in with mock data
+| Route | Who can open it | What it does |
+| --- | --- | --- |
+| `/login` | Signed-out users | Email or Google sign-in |
+| `/select-org` | Signed-in users | Choose an organization |
+| `/` | Signed-in + org | Home (Anthers shell). Mock demos: `?home=empty`, `?home=error` |
+| `/analytics/reports` | Signed-in + org | `AdvancedDataTable` listing: search, filters, bulk actions, saved views (including **Empty demo**), row ⋮ menu |
+| `/settings` | Signed-in + org | Settings hub (general, users, notifications) |
+| `/settings/users` | Signed-in + org | User management list |
+| `/settings/users/:id` | Signed-in + org | User detail |
+| `/settings/notifications` | Signed-in + org | Notification sender / look & feel / list |
+| `/settings/notifications/:id` | Signed-in + org | Notification template editor |
+| `/whats-new` | Signed-in + org | Release notes placeholder |
+| `/auth/mock-callback` | Mock API only | Stands in for opening the magic link |
 
-In `npm run dev` the mock API is on, so you can sign in without a backend:
+Any other path redirects to `/`. Sign out clears the session and sends you to `/login`. Wrap new signed-in routes in `<RequireSession requireOrganization />` in `src/routes/AppRoutes.tsx`. Add sidebar items in `src/config/navigation.ts`. New product domains can start from `src/features/_feature-template_/`.
 
-- **Google**: click **Sign in with Google**. You are signed in as `demo@example.com`.
-- **Email**: enter any email, click **Continue with email**, then click **finish sign-in** in the yellow banner.
+### Authentication
 
-These emails trigger specific states:
+Sign-in uses Anthers `LoginPage` and `SelectOrganizationPage`. The backend keeps the session in HTTP-only cookies; the app never stores an access token.
 
-| Email                   | Result                                          |
-| ----------------------- | ----------------------------------------------- |
-| `fail@example.com`      | Sign-in error on the login page                 |
-| `one-org@example.com`   | One organization, picked automatically          |
-| `no-orgs@example.com`   | "You're not part of any organization yet"       |
-| `org-error@example.com` | Organizations fail to load, with a retry button |
+- **`authClient`** — session endpoints only (`/auth/session`, `/auth/refresh-token`, `/auth/logout`). No 401→refresh interceptor (avoids refresh loops).
+- **`httpClient`** — app APIs. Sends cookies + CSRF header `X-{VITE_APP_NAME}-Request`. On 401 it refreshes once (Web Lock–coordinated across tabs), then retries. Only a 401 response from the refresh endpoint notifies session expiry, clears the session, and redirects to `/login`; other refresh failures, including server and network errors, reject the request without clearing the session.
 
-Any other email gets three organizations with the roles owner, admin and member. The mock session is kept in `sessionStorage`, so it survives a reload and ends when you close the tab. The mock routes are in `src/services/mocks/auth-handlers.ts`.
+Code: `src/features/auth`, `src/pages/auth`, `src/services/api`, `src/routes/RequireSession.tsx`.
 
-### Connecting your backend
+#### Signing in with mock data
 
-Set `VITE_USE_MOCK_API=false` and `VITE_API_BASE_URL` in `.env.local`, then restart the dev server. The backend must provide these endpoints, each returning `{ status, message, data }`:
+With `npm run dev`, the mock API is on:
 
-| Endpoint                                  | Purpose                                                    |
-| ----------------------------------------- | ---------------------------------------------------------- |
-| `POST /auth/sso`                          | Send the magic link. Body: `{ email, query, redirectUrl }` |
-| `GET /auth/session`                       | Current session, or 401 when signed out                    |
-| `GET /auth/organization`                  | Organizations the user belongs to                          |
-| `POST /auth/organization/:organizationId` | Switch the session to that organization                    |
-| `POST /auth/logout`                       | End the session                                            |
-| `GET /home`                               | Home page data in `{ status, message, data }` envelope; `data` contains the fields described below |
+- **Google** — Sign in with Google → `demo@example.com`
+- **Email** — any email → **Continue with email** → **finish sign-in** in the yellow banner
 
-The `/home` response's `data` follows [`HomePageDataProps`](./src/features/home/types.ts): `title`, `description`, `insights`, `onboarding` (`heading`, `description`, `steps`), `featureCards`, and `partners` (`title`, `description`, `cards`) are required. Insight items require `title` and `value`; onboarding steps require `title`, `description`, and `completed`; feature cards require `heading`, `description`, `imageAlt`, `imageSrc`, `mediaSide`, `mediaWidthPct`, `type`, and `primaryActionLabel`; partner cards require `heading`, `description`, `imageSrc`, and `primaryActionLabel`. Optional fields are `percentageChange`, `previousValue`, `isPositive`, and `tooltipContent` on insights, and `secondaryActionLabel` on feature cards. Return empty arrays (`[]`) for empty `insights`, `onboarding.steps`, `featureCards`, or `partners.cards`; an empty home page has all four collections empty.
+| Email | Result |
+| --- | --- |
+| `fail@example.com` | Sign-in error on the login page |
+| `one-org@example.com` | One organization, picked automatically |
+| `no-orgs@example.com` | “You're not part of any organization yet” |
+| `org-error@example.com` | Organizations fail to load (retry) |
 
-Requests are sent with credentials, so if the API is on another origin it must allow credentials in CORS and set cookies that the browser will send back. The magic link should send the user to `/select-org` after it sets the cookies.
+Any other email gets three organizations (owner / admin / member). The mock session lives in `sessionStorage` (survives reload, ends when the tab closes). Handlers: `src/services/mocks/auth-handlers.ts`.
 
-To show **Sign in with Google**, set `VITE_SSO_APP_ID` to your app's ID from the Marmeto identity service. Without it, the login page offers email only.
+#### Connecting your backend
 
-### Branding the login page
+Set in `.env.local`, then restart:
 
-Edit `src/config/brand.ts` to set your product's name, logo, login background and support links. Replace `public/logo.svg` and `public/login-background.svg` with your own artwork, or point `brand.ts` at other files. The logo is shown 64px tall on the login page, so keep the artwork vertically centred in its canvas.
+```sh
+VITE_USE_MOCK_API=false
+VITE_API_BASE_URL=https://your-api.example/api
+VITE_APP_NAME=your-app   # must match backend APP_NAME (CSRF + refresh lock)
+# VITE_SSO_APP_ID=...    # required to show Google sign-in
+```
 
-## Git hooks
+Expected auth/session endpoints (envelope `{ status, message, data }`, credentials + CORS):
 
-Husky runs these checks automatically, so you don't need to run them by hand. ESLint also runs in the editor on save (see `.vscode/settings.json`), so problems are fixed before you `git add`.
+| Endpoint | Purpose |
+| --- | --- |
+| `POST /auth/sso` | Send magic link (`{ email, query, redirectUrl }`) |
+| `GET /auth/session` | Current session, or 401 when signed out |
+| `POST /auth/refresh-token` | Rotate refresh cookie |
+| `GET /auth/organization` | Organizations for the user |
+| `POST /auth/organization/:organizationId` | Select organization |
+| `POST /auth/logout` | End session |
+| `GET /home` | Home page payload ([`HomePageDataProps`](./src/features/home/types.ts)) |
+| `GET /reports` | Reports listing (`edges` + `pageInfo`; query `q`, `payment_status`, `channel`, `fulfillment_status`, cursors) |
+| `GET` / `POST /filter-view` | Listing filters and saved views (`?type=reports`). `PUT` / `DELETE /filter-view/:id` |
+| `GET /user` | Users connection (settings → user management) |
+| `GET /notification/` | Notifications connection |
+| `GET` / `PUT /notification-setting/` | Sender + look & feel |
+| `PATCH /notification/:id` | Toggle `isActive` |
+| `GET` / `PUT /notification/:id` | Template detail |
+| `POST /notification/preview` | Preview HTML |
+| `POST /notification/test` | Send test email |
 
-| Hook         | Runs                                                                                                                         | Takes               |
-| ------------ | ---------------------------------------------------------------------------------------------------------------------------- | ------------------- |
-| `pre-commit` | `lint-staged` (ESLint fix and Prettier on the files you staged with `git add`), then `npm run lint` and `npm run type-check` | a few seconds       |
-| `pre-push`   | `npm run build`                                                                                                              | about 15–30 seconds |
-| `commit-msg` | `commitlint` (conventional commit messages)                                                                                  | instant             |
+The magic link should land on `/select-org` after cookies are set.
 
-If a hook fails, the commit or push stops and the error is printed. Fix it and try again. In an emergency you can skip hooks with `--no-verify`. CI runs lint and type-check, but not the local pre-push build, commitlint, or staged-file formatting.
+### Branding
 
-## Development
+Edit `src/config/brand.ts` and replace `public/logo.svg` / `public/login-background.svg` (or point `brand.ts` at other assets). Login logo renders ~64px tall. Brand colour, font, and radius live in `src/theme/theme.css`.
 
-While developing, you will mostly use `npm run dev`. These scripts are also available:
+### Environment variables
 
-| `npm run <script>` | Description                                                                                          |
-| ------------------ | ---------------------------------------------------------------------------------------------------- |
-| `dev`              | Serves the app at http://localhost:3000 with hot reload. Set `PORT` to use another port.             |
-| `format`           | Formats the project using [Prettier](https://prettier.io/)                                           |
-| `lint`             | Runs [ESLint](https://eslint.org/) on the project                                                    |
-| `lint:fix`         | Runs ESLint and [fixes what it can](https://eslint.org/docs/latest/use/command-line-interface#--fix) |
-| `type-check`       | Runs the TypeScript compiler without emitting files                                                  |
-| `clean:demo`       | One-time source cleanup: empties mock report rows and removes homepage demo-state controls            |
+See [`.env.example`](./.env.example). Only `VITE_*` values are exposed to the browser — never put secrets there.
 
-## Production
+| Variable | Role |
+| --- | --- |
+| `VITE_API_BASE_URL` | Axios base URL |
+| `VITE_API_TIMEOUT_MS` | Request timeout (default `15000`) |
+| `VITE_APP_NAME` | CSRF header + cross-tab refresh lock name |
+| `VITE_SSO_APP_ID` | Shows Google SSO when set |
+| `VITE_USE_MOCK_API` | Force mocks on/off (`dev` defaults to on) |
+| `VITE_MOCK_API_DELAY_MS` | Artificial mock latency |
 
-Scripts for preparing and viewing the production version:
+### Scripts
 
-| `npm run <script>` | Description                                                                         |
-| ------------------ | ----------------------------------------------------------------------------------- |
-| `build`            | Type-checks, then builds the application to `dist/`. The mock API is off by default |
-| `preview`          | Serves the `dist/` build locally. Run `npm run build` first                         |
+| `npm run <script>` | Description |
+| --- | --- |
+| `dev` | App at http://localhost:3000 (`PORT` overrides) |
+| `build` | Type-check + production build to `dist/` (mocks off by default) |
+| `preview` | Serve `dist/` locally |
+| `lint` / `lint:fix` | ESLint |
+| `format` | Prettier |
+| `type-check` | `tsc --noEmit` |
+| `clean:demo` | Strip demo mock data / homepage demo controls |
 
-## Contributing
+### Git hooks
 
-See [CONTRIBUTING.md](./CONTRIBUTING.md) for local project contribution workflow (branching, commits, architecture). For issues or improvements to the template itself, open an issue or PR in [AnthersDev/product-boilerplate-frontend](https://github.com/AnthersDev/product-boilerplate-frontend).
+Husky runs these locally. ESLint also runs on save (`.vscode/settings.json`).
+
+| Hook | Runs | Typical time |
+| --- | --- | --- |
+| `pre-commit` | `lint-staged`, then `lint` + `type-check` | a few seconds |
+| `pre-push` | `npm run build` | ~15–30s |
+| `commit-msg` | Conventional Commits (`commitlint`) | instant |
+
+Fix failures and retry. Skip only in emergencies with `--no-verify`. Generated-app CI usually runs lint + type-check (and often build); it may not mirror every local hook.
+
+### Contributing (app work)
+
+See [CONTRIBUTING.md](./CONTRIBUTING.md) for branching, commits, and PR checklist. Prefer features under `src/features/<domain>` with pages in `src/pages`.
+
+### AI agents
+
+Hand agents [AGENTS.md](./AGENTS.md) (attach / `@AGENTS.md` in Cursor). It is the living playbook for stack, folder rules, current routes/features, and how to add more. **Update AGENTS.md in the same PR** when you add features, routes, mocks, or env contracts.
+
+---
+
+## For maintainers
+
+Use this section when you maintain **this boilerplate repo** ([AnthersDev/product-boilerplate-frontend](https://github.com/AnthersDev/product-boilerplate-frontend)), its CI, or how product apps are generated from it — not day-to-day feature work inside a single product.
+
+### Repository layout
+
+| Path | Role |
+| --- | --- |
+| `template-vite/` | The Vite app template (this README lives here and ships with generated apps) |
+| `.github/workflows/template-ci.yml` | Boilerplate CI: install, lint, type-check, build against `template-vite` |
+| `template-vite/.github/workflows/` | Workflows copied into generated product repos |
+
+Do not treat the checked-out boilerplate as a production app. New product apps should be generated (e.g. via create-frontend / the org’s scaffolder) so branding, env, and package name are set correctly.
+
+### Private package + CI secret
+
+Installs need `@marmeto_engineering/anthers-components`.
+
+- **Local:** `npm login` with a `marmeto_engineering` org account
+- **GitHub Actions:** repository secret `NPM_TOKEN_READ_ONLY` (read-only npm token), exposed as `NODE_AUTH_TOKEN` during `npm ci`
+
+Without that secret, trusted CI jobs that install the private package will fail.
+
+### Template CI behavior
+
+`.github/workflows/template-ci.yml` runs on pushes and PRs to `main`:
+
+| Job | When | Behavior |
+| --- | --- | --- |
+| `template-vite` | Same-repo pushes/PRs | `npm ci` with `NPM_TOKEN_READ_ONLY`, then lint, type-check, build |
+| `template-vite-fork` | Fork PRs only | Strips the private dependency, stubs it, then lint / type-check / build so forks never receive the secret |
+
+Concurrency cancels older runs on the same ref. Working directory is always `template-vite`.
+
+### Validating template changes
+
+From `template-vite/`:
+
+```sh
+fnm use
+npm ci          # or npm install after login
+npm run lint
+npm run type-check
+npm run build
+```
+
+Keep Node on **24** (engines + `.node-version`). Bump Anthers only intentionally and smoke-test login, home, settings (users + notifications), and reports.
+
+When you change auth, mocks, or env contracts, update this README, `.env.example`, and [AGENTS.md](./AGENTS.md) in the same PR so generated apps and their agents stay current.
+
+### Docs map
+
+| Audience | Doc |
+| --- | --- |
+| Developers (humans) | This file + [CONTRIBUTING.md](./CONTRIBUTING.md) + [docs/](./docs) |
+| Maintainers (humans) | This section + [docs/GITHUB_SETUP_GUIDE.md](./docs/GITHUB_SETUP_GUIDE.md) |
+| Developers & maintainers → AI agents | [AGENTS.md](./AGENTS.md) — provide to the agent; keep the “Current map” and changelog updated as the product grows |
+
+Template issues and PRs: [AnthersDev/product-boilerplate-frontend](https://github.com/AnthersDev/product-boilerplate-frontend).

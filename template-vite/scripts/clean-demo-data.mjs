@@ -283,10 +283,10 @@ const changes = [
   update(readmePath, (source) =>
     replaceOnce(
       source,
-      '| `/`                   | Signed-in users with an organization | Home page in the Anthers `AppLayout` shell. Mock demo states: `?home=empty`, `?home=error`. |',
-      '| `/`                   | Signed-in users with an organization | Home page in the Anthers `AppLayout` shell.                             |',
+      '| `/` | Signed-in + org | Home (Anthers shell). Mock demos: `?home=empty`, `?home=error` |',
+      '| `/` | Signed-in + org | Home (Anthers shell) |',
       readmePath,
-      '| `/`                   | Signed-in users with an organization | Home page in the Anthers `AppLayout` shell.                             |',
+      '| `/` | Signed-in + org | Home (Anthers shell) |',
     ),
   ),
 ];
