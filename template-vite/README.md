@@ -61,7 +61,7 @@ Any other path redirects to `/`. Sign out clears the session and sends you to `/
 Sign-in uses Anthers `LoginPage` and `SelectOrganizationPage`. The backend keeps the session in HTTP-only cookies; the app never stores an access token.
 
 - **`authClient`** — session endpoints only (`/auth/session`, `/auth/refresh-token`, `/auth/logout`). No 401→refresh interceptor (avoids refresh loops).
-- **`httpClient`** — app APIs. Sends cookies + CSRF header `X-{VITE_APP_NAME}-Request`. On 401 it refreshes once (Web Lock–coordinated across tabs), then retries; if refresh fails, the session is cleared and the user goes to `/login`.
+- **`httpClient`** — app APIs. Sends cookies + CSRF header `X-{VITE_APP_NAME}-Request`. On 401 it refreshes once (Web Lock–coordinated across tabs), then retries. Only a 401 response from the refresh endpoint notifies session expiry, clears the session, and redirects to `/login`; other refresh failures, including server and network errors, reject the request without clearing the session.
 
 Code: `src/features/auth`, `src/pages/auth`, `src/services/api`, `src/routes/RequireSession.tsx`.
 
