@@ -1,11 +1,5 @@
-export interface ExampleState {
-  value: string;
-  isLoading: boolean;
-  error: string | null;
+/** Body of `GET /examples`. Rename this when you copy the feature. */
+export interface ExampleItem {
+  id: string;
+  name: string;
 }
-
-export interface ExampleService {
-  doSomething: (value: string) => Promise<void>;
-}
-
-export * from './index';

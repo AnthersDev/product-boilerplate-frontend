@@ -2,135 +2,111 @@
 
 ## Overview
 
-This extension configures GitHub workflows, Dependabot, and templates for a professional repository setup.
+A generated app ships the GitHub Actions workflows, issue templates, and pull request template in this repository. Clone the repo and these files are already there. Nothing else has to be added before CI can run.
 
-## Included Features
+Dependabot, `CODEOWNERS`, and Super Linter are not part of this template. Do not look for `dependabot.yml`, `CODEOWNERS`, or `super-lint.yml`. Linting in CI is MegaLinter (`.github/workflows/mega-linter.yml`).
+
+## Included features
 
 ### GitHub Actions
 
-- **Super Linter**: Comprehensive code linting across multiple languages
-- **Dependency Updates**: Automated security and version updates
-- **Issue Templates**: Structured bug reports and feature requests
-- **PR Templates**: Consistent pull request format
+- **MegaLinter**: lints the JavaScript/TypeScript diff on pull requests
+- **Typecheck**: runs `npm run type-check`
+- **Tests**: runs `npm run test` when that script exists
+- **Danger**: checks the pull request body against the PR template
+- **Todo checker**: turns `TODO` comments on a pull request into GitHub issues, then commits the issue links onto that pull request branch
 
-### Automated Workflows
+### Templates
 
-- Code quality checks on every PR
-- Security vulnerability scanning
-- Dependency update automation
-- Lint validation for multiple file types
+- Bug report, feature request, and documentation issue forms
+- Pull request template with the sections Danger expects
+- Code of conduct
 
-## Configuration Files
+## Configuration files
 
 ### Workflows (`.github/workflows/`)
 
-- `super-lint.yml` - Runs Super Linter on all code changes
-- `dependabot.yml` - Configures automated dependency updates
+| File | When it runs | What it does |
+| --- | --- | --- |
+| `mega-linter.yml` | Non-draft pull requests to `main` | MegaLinter (`oxsecurity/megalinter` JavaScript flavor). Lints the diff with `main`. Can commit automatic fixes on that pull request. |
+| `type-check.yml` | Push to `main`, and non-draft pull requests to `main` | Installs dependencies, then `npm run type-check`. |
+| `tests.yml` | Push to `main`, and non-draft pull requests to `main` | Installs dependencies, then `npm run test` if the script exists. |
+| `pr-review.yml` | Non-draft pull requests to `main` | Danger JS. Fails the check when the description is missing the PR template sections. Warns on an unchecked checklist and on diffs over 200 lines. |
+| `todo.yml` | Pull requests to `main` from this repository | Opens or closes issues from `TODO` comments in the pull request's latest commit. Commits inserted issue links onto the pull request branch. Does not push to `main`. |
+
+`type-check.yml`, `tests.yml`, and `pr-review.yml` install `@marmeto_engineering/anthers-components`. Add a repository secret named `NPM_TOKEN_READ_ONLY` (a read-only npm token). The install step reads it as `NODE_AUTH_TOKEN`. Without that secret those jobs fail at install. `pr-review.yml` also expects a `DANGER_GITHUB_API_TOKEN` secret.
+
+Draft pull requests skip MegaLinter, typecheck, tests, and Danger.
 
 ### Templates (`.github/`)
 
-- `ISSUE_TEMPLATE/` - Bug report and feature request templates
-- `pull_request_template.md` - Standard PR format
-- `CODEOWNERS` - Define code review assignments
+- `ISSUE_TEMPLATE/bug-report.yml` — bug reports
+- `ISSUE_TEMPLATE/feature-request.yml` — feature requests
+- `ISSUE_TEMPLATE/documentation.yml` — documentation issues
+- `ISSUE_TEMPLATE/config.yml` — turns off blank issues
+- `PULL_REQUEST_TEMPLATE.md` — sections Danger checks: Description, Type of Change, How Has This Been Tested?, Checklist
+- `CODE_OF_CONDUCT.md`
+
+There is no `.mega-linter.yml`. MegaLinter settings live in `mega-linter.yml` (`VALIDATE_ALL_CODEBASE`, `APPLY_FIXES`, `APPLY_FIXES_EVENT`, `APPLY_FIXES_MODE`).
 
 ## Customization
 
-### Super Linter Configuration
+### MegaLinter
 
-The Super Linter is configured to:
+In `.github/workflows/mega-linter.yml`:
 
-- Only validate changed files (`VALIDATE_ALL_CODEBASE: false`)
-- Skip TypeScript Standard validation
-- Run on push and PR events to main branch
+- The job runs only on non-draft pull requests, so the push trigger does not start a run.
+- `VALIDATE_ALL_CODEBASE` is true only for a push to `main`. On pull requests MegaLinter lints the diff.
+- `APPLY_FIXES: all` with `APPLY_FIXES_MODE: commit` writes fixes onto the pull request branch.
 
-### Dependabot Settings
+Set `VALIDATE_ALL_CODEBASE: true` if you want every pull request to lint the whole repo. Point MegaLinter at a root `.mega-linter.yml` if you outgrow the workflow env block. Docs: [megalinter.io](https://megalinter.io/latest/config-file/).
 
-Automatic updates for:
+### Danger
 
-- npm packages (daily)
-- GitHub Actions (weekly)
-- Docker images (if applicable)
+The rules are in `tools/danger/dangerfile.ts`. The workflow moves that folder to the repo root before the Danger action runs. Keep the section headings in `PULL_REQUEST_TEMPLATE.md` aligned with `templateSections` in the dangerfile, or the check fails on every pull request.
 
-### Issue Templates
+### Issue templates
 
-Pre-configured templates for:
+Edit the files in `.github/ISSUE_TEMPLATE/`. `config.yml` points general questions at a discussions URL from the upstream generator. Change that URL if you use discussions on this repo.
 
-- 🐛 Bug reports with reproduction steps
-- 🚀 Feature requests with use cases
-- 📖 Documentation improvements
+## Best practices
 
-## Best Practices
+### Branch protection
 
-### Branch Protection
+These are repository settings, not files in the template. On `main`, consider requiring:
 
-Consider enabling:
+- A pull request before merging
+- The MegaLinter, typecheck, tests, and Danger checks
+- Branches to be up to date before merge
 
-- Require PR reviews
-- Require status checks
-- Require branches to be up to date
-- Restrict pushes to main branch
+### Dependency updates
 
-### Security
+Nothing in this repo opens dependency update pull requests. Update npm packages and GitHub Actions on purpose, then run `npm run lint`, `npm run type-check`, and `npm run build`. Add [Dependabot](https://docs.github.com/en/code-security/dependabot) yourself if you want that automation. It is not configured here.
 
-The setup includes:
+### Review assignment
 
-- Dependabot security updates
-- CodeQL analysis (if applicable)
-- Secret scanning alerts
-
-### Team Collaboration
-
-- Use CODEOWNERS for automated review assignments
-- Customize issue labels for better organization
-- Set up project boards for task management
-
-## Common Workflows
-
-### Adding Custom Actions
-
-1. Create new workflow file in `.github/workflows/`
-2. Define triggers (push, PR, schedule)
-3. Add necessary steps and actions
-4. Test with pull requests
-
-### Customizing Templates
-
-1. Edit files in `.github/ISSUE_TEMPLATE/`
-2. Modify `pull_request_template.md`
-3. Update labels and assignees as needed
-
-### Managing Dependencies
-
-Dependabot will automatically:
-
-- Create PRs for dependency updates
-- Group related updates when possible
-- Follow your merge preferences
+There is no `CODEOWNERS` file, so GitHub will not auto-request reviewers from a path list. Add `.github/CODEOWNERS` when you want that.
 
 ## Troubleshooting
 
-### Linter Failures
+### MegaLinter failures
 
-- Check the Super Linter output for specific errors
-- Common issues: trailing whitespace, missing newlines
-- Configure `.gitignore` for generated files
+Open the MegaLinter job log and the uploaded `MegaLinter reports` artifact. Fixes are committed only when `APPLY_FIXES` is on and the workflow has permission to push to the pull request branch.
 
-### Dependabot Issues
+### Typecheck or tests fail at install
 
-- Check Dependabot logs in repository insights
-- Verify `package.json` permissions
-- Review conflicting dependency versions
+Confirm the `NPM_TOKEN_READ_ONLY` secret exists and can read `@marmeto_engineering/anthers-components`. A missing or expired token fails `npm install` before typecheck or tests start.
 
-### Workflow Permissions
+### Danger fails on a new pull request
 
-Ensure workflows have proper permissions:
+The body must include `## Description`, `## Type of Change`, `## How Has This Been Tested?`, and `## Checklist`, and the checklist items must be checked (`- [x]`). Use the template instead of an empty description. If Danger cannot call the API, check `DANGER_GITHUB_API_TOKEN`.
 
-- `contents: read` for accessing repository
-- `pull-requests: write` for creating PRs
-- `checks: write` for status updates
+### Todo checker
+
+`todo.yml` runs on the pull request branch. New `TODO` comments in the latest commit become issues, and the workflow pushes a `chore: add GitHub issue links to TODOs` commit back onto that same branch. `main` changes only when the pull request is merged. Fork pull requests are skipped, because the workflow cannot push to them. Pull the branch again if that commit landed while you were still editing it.
 
 ## Resources
 
-- [GitHub Actions Documentation](https://docs.github.com/en/actions)
-- [Dependabot Configuration](https://docs.github.com/en/code-security/dependabot)
-- [Super Linter](https://github.com/super-linter/super-linter)
+- [GitHub Actions](https://docs.github.com/en/actions)
+- [MegaLinter](https://megalinter.io)
+- [Danger JS](https://danger.systems/js/)

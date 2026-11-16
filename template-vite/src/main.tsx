@@ -5,7 +5,10 @@ import '@/index.css';
 import '@/i18n';
 import reportWebVitals from '@/report-web-vitals';
 import App from '@/App';
+import { brand } from '@/config';
 import { env } from '@/libs/env';
+
+document.title = brand.name;
 
 const root = createRoot(document.getElementById('root') as HTMLElement);
 

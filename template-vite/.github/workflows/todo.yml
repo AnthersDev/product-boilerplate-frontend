@@ -1,23 +1,33 @@
 name: Todo Checker
 
+# Runs on the developer's pull request branch. It never pushes to main.
+# Issue-link edits are committed on that branch and reach main when the pull request is merged.
 on:
-  # Run this workflow on push to main
-  push:
+  pull_request:
     branches:
       - main
 
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: todo-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
 jobs:
   todo:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+
     runs-on: ubuntu-latest
 
-    permissions:
-      contents: write
-      issues: write
-      pull-requests: write
-
     steps:
-      - name: Begin CI...
+      - name: Checkout pull request branch
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 2
 
       - name: TODO to Issue
         uses: alstr/todo-to-issue-action@v5.1.10
@@ -26,17 +36,14 @@ jobs:
           INSERT_ISSUE_URLS: 'true'
           CLOSE_ISSUES: 'true'
 
-      - name: Set Git user
+      - name: Commit issue links onto the pull request branch
         run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-
-      - name: Commit and Push Changes
-        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
-          if [[ `git status --porcelain` ]]; then
-            git commit -m "Automatically added GitHub issue links to TODOs"
-            git push origin main
+          if [[ -n "$(git status --porcelain)" ]]; then
+            git commit -m "chore: add GitHub issue links to TODOs"
+            git push origin "HEAD:${{ github.event.pull_request.head.ref }}"
           else
             echo "No changes to commit"
           fi

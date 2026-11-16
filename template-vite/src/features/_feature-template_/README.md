@@ -1,44 +1,30 @@
 # Feature Template
 
-This is a template for creating a new feature. It is intended to be used as a
-starting point for creating a new feature. It is not intended to be used as a
-feature in its own right.
+Copy this folder when you add a domain. It is not a screen in the app.
 
-## Project Structure
+The sample is a real `GET /examples` call. Copy this shape, then rename it:
 
-Refer to the [Project Structure](../../../docs/PROJECT_STRUCTURE.md) documentation
-for more information.
+- `services/example-service.ts` calls `httpClient` and exports React Query options
+- `hooks/use-example.ts` is `useQuery(examplesQueryOptions())`
+- `services/example-mock.ts` returns the `{ status, message, data }` envelope
+- `components/ExampleComponent.tsx` renders pending, error, and success from that hook
 
-## Feature
+Do not replace this with `useState` plus a function that returns a string. Server data stays in React Query.
 
-Small description of the feature.
+## After you copy
 
-### Feature Components
+1. Rename the folder, types, query key, endpoint, and mock path.
+2. In `src/services/mocks/handlers.ts`, import your routes instead of `exampleMockRoutes` from this folder.
+3. Export only through `index.ts`. Pages import from `@/features/<domain>`, not from files inside the feature.
 
-> List of the exported components of the feature.
+## Project structure
 
-- `ComponentName`: Description of the component.
+See [Project structure](../../../docs/PROJECT_STRUCTURE.md).
 
-### Feature Services
+## What this folder exports
 
-> List of the exported services of the feature.
-
-- `ServiceName`: Description of the service.
-
-### Feature Hooks
-
-> List of the exported hooks of the feature.
-
-- `HookName`: Description of the hook.
-
-### Feature Utilities
-
-> List of the exported utilities of the feature.
-
-- `UtilityName`: Description of the utility.
-
-### Feature Providers
-
-> List of the exported providers of the feature.
-
-- `ProviderName`: Description of the provider.
+- `ExampleComponent` renders the example list
+- `useExample` loads it
+- `fetchExamples`, `examplesQueryOptions`, and `exampleQueryKeys` are the service
+- `exampleMockRoutes` is the mock handler, registered in `src/services/mocks/handlers.ts`
+- `ExampleItem` is the response item
