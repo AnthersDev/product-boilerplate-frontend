@@ -93,6 +93,7 @@ export const mainNavItems: NavItemProps[] = [
     id: 'settings',
     label: 'Settings',
     href: '/settings',
+    matchPath: '/settings',
     icon: icon(Settings),
   },
   {
