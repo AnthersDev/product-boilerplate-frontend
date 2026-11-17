@@ -111,11 +111,7 @@ export const vendorRegistrationSampleForm = {
         field(13, 'country', 'dropdown', 'Country/region', {
           required: true,
           placeholder: 'Select your country/region',
-          choices: [
-            { value: 'in', label: 'India' },
-            { value: 'us', label: 'United States' },
-            { value: 'gb', label: 'United Kingdom' },
-          ],
+          choices: [{ value: 'in', label: 'India' }],
         }),
         field(14, 'state', 'dropdown', 'State/province', {
           required: true,

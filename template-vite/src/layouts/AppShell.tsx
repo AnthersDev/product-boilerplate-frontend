@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { type ReactNode } from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
 import { AppLayout, type AppLayoutProps } from '@marmeto_engineering/anthers-components';
 import { LogOut } from 'lucide-react';
@@ -9,8 +9,11 @@ import { useSession, useSignOut } from '@/features/auth';
 import AppSidebar from './AppSidebar';
 
 type ShellAppLayoutProps = Extract<AppLayoutProps, { showAppList?: false }>;
+interface AppShellProps {
+  children?: ReactNode;
+}
 
-const AppShell = () => {
+const AppShell = ({ children }: AppShellProps) => {
   const navigate = useNavigate();
   const { data: session } = useSession();
   const signOut = useSignOut();
@@ -60,7 +63,7 @@ const AppShell = () => {
           {signOut.error.message}
         </p>
       )}
-      <Outlet />
+      {children ?? <Outlet />}
     </AppLayout>
   );
 };

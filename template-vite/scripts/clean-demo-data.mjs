@@ -244,24 +244,8 @@ const changes = [
     return result;
   }),
   update(homeContentPath, (source) => {
-    let result = replaceOnce(source, '  Button,\n', '', homeContentPath, 'export const HomePageSections');
-    result = replaceOnce(
-      result,
-      "import { useNavigate } from 'react-router-dom';\n",
-      '',
-      homeContentPath,
-      'export const HomePageSections',
-    );
-    result = replaceOnce(
-      result,
-      "import { env } from '@/libs/env';\n",
-      '',
-      homeContentPath,
-      'export const HomePageSections',
-    );
-    result = replaceOnce(result, '  const navigate = useNavigate();\n', '', homeContentPath, 'const hasInsights');
-    result = replaceOnce(
-      result,
+    let result = replaceOnce(
+      source,
       `        actions={
           env.useMockApi ? (
             <Button variant="outline" onClick={() => navigate('/?home=default')}>

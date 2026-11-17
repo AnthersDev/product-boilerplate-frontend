@@ -41,10 +41,10 @@ export const identifyPostHogUser = (user: {
   });
 };
 
-export const capturePostHogPageview = (pathname: string, search = ''): void => {
+export const capturePostHogPageview = (): void => {
   if (!ensurePostHog()) return;
   posthog.capture('$pageview', {
-    $current_url: `${window.location.origin}${pathname}${search}`,
+    $current_url: `${window.location.origin}${window.location.pathname}${window.location.search}`,
   });
 };
 

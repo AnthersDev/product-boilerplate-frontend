@@ -77,7 +77,7 @@ Private package: `@marmeto_engineering/anthers-components`. Local: `npm login`. 
 | `/settings/notifications`, `/settings/notifications/:id` | Notifications list + template editor |
 | `/whats-new` | Placeholder |
 | `/auth/mock-callback` | Mock magic-link only |
-| `*` | **Page not found** (`src/pages/NotFound.tsx`) — never redirect unknown paths to Home |
+| `*` | **Page not found** (`src/pages/NotFound.tsx`) — public when signed out, in `AppShell` for organization sessions; base sessions go to `/select-org`; never Home |
 
 Sidebar: `src/config/navigation.ts`. Branding: `src/config/brand.ts`. Shell: `src/layouts/AppShell.tsx`.
 
@@ -177,7 +177,7 @@ Same three touchpoints as the human guide:
 2. Lazy import + `<Route>` under `RequireSession requireOrganization` → `AppShell` in `src/routes/AppRoutes.tsx`.
 3. `mainNavItems` entry in `src/config/navigation.ts` (Lucide icon, `strokeWidth` 1.75).
 
-Do not edit README/AGENTS unless the human asked or the route is a lasting product surface you were told to document.
+Document every added route in the README route table. When a change updates a user-facing API or environment contract, update the relevant README table. Skip documentation for unrelated changes unless it was requested.
 
 ---
 
@@ -202,7 +202,7 @@ Reference implementation: `src/pages/registration/`.
 5. Add nav in `src/config/navigation.ts` if it belongs in the sidebar.
 6. Update `src/services/mocks/handlers.ts`: replace `exampleMockRoutes` with the new feature routes only while the scaffold's `exampleMockRoutes` is still present. Otherwise, add the new routes while preserving routes for existing features. Update the feature's README with its routes and setup.
 7. Wire permissions if the UI is gated (session permissions + mock user/auth).
-8. Update **this file** (Current map + Changelog) and [README.md](./README.md) routes/API tables when the contract is user-facing.
+8. Update **this file** (Current map + Changelog) and the relevant [README.md](./README.md) routes/API/environment tables when the contract is user-facing.
 
 ---
 
@@ -253,6 +253,7 @@ Record notable capability additions here so future sessions don’t rediscover t
 
 | Date | Change |
 | --- | --- |
+| 2026-11-17 | Analytics follows signed-in sessions and browser URLs; Intercom loading retries after failures and cancels pending boots on shutdown. Unknown routes select the public or shell 404 by session; registration country choices match available states; settings show filenames from draft values. |
 | 2026-11-17 | Registration `/registration`: `FormPreviewPage` + vendor sample JSON (Company/Brand/Bank/Contact); docs + FormPreview recipe. `PermissionGuard`; user management; 404; PostHog/Intercom; AI product-name setup |
 | 2026-11-16 | `_feature-template_` sample is `GET /examples`: `httpClient`, React Query, and `exampleMockRoutes` registered in `handlers.ts` |
 | 2026-11-13 | Auth: dual clients + CSRF + refresh lock; settings hub; users + notifications (Anthers); reports `AdvancedDataTable`; mocks for auth/home/user/notification/reports; Node 24 |

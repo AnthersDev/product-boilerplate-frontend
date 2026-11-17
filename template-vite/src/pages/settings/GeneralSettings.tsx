@@ -64,17 +64,21 @@ const GeneralSettings = ({ settings, description, errors, onChange }: GeneralSet
     <SettingLayout title="Brand Assets" description="Keep your workspace identity consistent across the app.">
       <div className="grid gap-4 md:grid-cols-2">
         <FileUploadField
+          key={`brand-logo:${settings.brandLogo}`}
           title="Upload Brand Logo"
           accept=".png,.jpg,.jpeg,image/png,image/jpeg"
           description="Accepts PNG, JPEG, JPG files, up to 5MB."
+          savedFileNames={settings.brandLogo ? [settings.brandLogo] : []}
           onFilesSelected={(files) => {
             onChange('brandLogo', files[0]?.name ?? '');
           }}
         />
         <FileUploadField
+          key={`brand-favicon:${settings.brandFavicon}`}
           title="Upload Brand Favicon"
           accept=".png,.jpg,.jpeg,image/png,image/jpeg"
           description="Accepts PNG, JPEG, JPG files, up to 5MB."
+          savedFileNames={settings.brandFavicon ? [settings.brandFavicon] : []}
           onFilesSelected={(files) => {
             onChange('brandFavicon', files[0]?.name ?? '');
           }}
@@ -87,10 +91,12 @@ const GeneralSettings = ({ settings, description, errors, onChange }: GeneralSet
       description="Upload and manage your brand documents here. Accepted formats include PDF, DOCX, and more."
     >
       <FileUploadField
+        key={`brand-documents:${JSON.stringify(settings.brandDocuments)}`}
         title="Upload Brand Documents"
         accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx"
         description="Accepts PDF, DOC, DOCX, XLS, XLSX, PPT, PPTX files, up to 5MB."
         multiple
+        savedFileNames={settings.brandDocuments}
         onFilesSelected={(files) =>
           onChange(
             'brandDocuments',
@@ -107,20 +113,37 @@ interface FileUploadFieldProps {
   accept: string;
   description: string;
   multiple?: boolean;
+  savedFileNames: string[];
   onFilesSelected: (files: File[]) => void;
 }
 
-const FileUploadField = ({ title, accept, description, multiple = false, onFilesSelected }: FileUploadFieldProps) => (
-  <FileUploader
-    heading={title}
-    description="Drag & drop files here or click to browse"
-    additionalText={description}
-    accept={accept.split(',').map((type) => type.trim())}
-    maxSizeMB={5}
-    multiple={multiple}
-    required={false}
-    onSelect={onFilesSelected}
-  />
+const FileUploadField = ({
+  title,
+  accept,
+  description,
+  multiple = false,
+  savedFileNames,
+  onFilesSelected,
+}: FileUploadFieldProps) => (
+  <div className="space-y-2">
+    <FileUploader
+      heading={title}
+      description="Drag & drop files here or click to browse"
+      additionalText={description}
+      accept={accept.split(',').map((type) => type.trim())}
+      maxSizeMB={5}
+      multiple={multiple}
+      required={false}
+      onSelect={onFilesSelected}
+    />
+    {savedFileNames.length > 0 && (
+      <ul aria-label={`${title} selected files`} className="text-small space-y-1 text-zinc-600">
+        {savedFileNames.map((fileName, index) => (
+          <li key={`${fileName}-${index}`}>{fileName}</li>
+        ))}
+      </ul>
+    )}
+  </div>
 );
 
 export default GeneralSettings;

@@ -8,6 +8,7 @@ declare global {
 }
 
 let scriptLoading: Promise<void> | null = null;
+let activeBootId = 0;
 
 export const isIntercomEnabled = (): boolean => Boolean(env.intercomAppId);
 
@@ -16,7 +17,7 @@ const loadIntercomScript = (): Promise<void> => {
   if (window.Intercom) return Promise.resolve();
   if (scriptLoading) return scriptLoading;
 
-  scriptLoading = new Promise((resolve, reject) => {
+  const loadPromise = new Promise<void>((resolve, reject) => {
     const appId = env.intercomAppId!;
     window.intercomSettings = { app_id: appId, api_base: env.intercomApiBase };
 
@@ -32,13 +33,16 @@ const loadIntercomScript = (): Promise<void> => {
     script.src = `https://widget.intercom.io/widget/${appId}`;
     script.onload = () => resolve();
     script.onerror = () => {
-      scriptLoading = null;
+      if (window.Intercom === stub) delete window.Intercom;
+      script.remove();
+      if (scriptLoading === loadPromise) scriptLoading = null;
       reject(new Error('Failed to load Intercom widget script'));
     };
     document.head.appendChild(script);
   });
 
-  return scriptLoading;
+  scriptLoading = loadPromise;
+  return loadPromise;
 };
 
 export const bootIntercom = async (user: {
@@ -48,9 +52,11 @@ export const bootIntercom = async (user: {
   lastName?: string | null;
 }): Promise<void> => {
   if (!isIntercomEnabled()) return;
+  const bootId = ++activeBootId;
 
   try {
     await loadIntercomScript();
+    if (bootId !== activeBootId) return;
     const name = [user.firstName, user.lastName].filter(Boolean).join(' ');
     window.Intercom?.('boot', {
       app_id: env.intercomAppId,
@@ -70,6 +76,7 @@ export const updateIntercom = (payload: Record<string, unknown>): void => {
 };
 
 export const shutdownIntercom = (): void => {
+  activeBootId += 1;
   if (!isIntercomEnabled() || !window.Intercom) return;
   try {
     window.Intercom('shutdown');

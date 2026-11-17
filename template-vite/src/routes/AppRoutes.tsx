@@ -1,6 +1,10 @@
 import React, { lazy } from 'react';
-import { Route, Routes } from 'react-router-dom';
+import { Navigate, Route, Routes } from 'react-router-dom';
+import { Button } from '@marmeto_engineering/anthers-components';
 
+import Loading from '@/components/Loading';
+import { StatusScreen } from '@/components/StatusScreen';
+import { useSession } from '@/features/auth';
 import { env } from '@/libs/env';
 
 import { GuestOnly, RequireSession } from './RequireSession';
@@ -20,6 +24,36 @@ const NotFound = lazy(() => import('@/pages/NotFound'));
 const Login = lazy(() => import('@/pages/auth/Login'));
 const MockSignIn = lazy(() => import('@/pages/auth/MockSignIn'));
 const SelectOrganization = lazy(() => import('@/pages/auth/SelectOrganization'));
+
+const SessionAwareNotFound = () => {
+  const { data: session, isPending, isError, error, refetch, isRefetching } = useSession();
+
+  if (isPending) return <Loading />;
+
+  if (isError) {
+    return (
+      <StatusScreen
+        role="alert"
+        title="We couldn't check your session"
+        description={error.message}
+        actions={
+          <Button loading={isRefetching} onClick={() => refetch()}>
+            Try again
+          </Button>
+        }
+      />
+    );
+  }
+
+  if (!session) return <NotFound />;
+  if (session.type !== 'organization') return <Navigate to="/select-org" replace />;
+
+  return (
+    <AppShell>
+      <NotFound />
+    </AppShell>
+  );
+};
 
 const AppRoutes = () => (
   <Routes>
@@ -46,12 +80,10 @@ const AppRoutes = () => (
         <Route path="/settings/notifications" element={<Notifications />} />
         <Route path="/settings/notifications/:id" element={<NotificationDetail />} />
         <Route path="/whats-new" element={<WhatsNew />} />
-        {/* Unknown paths under the shell (e.g. /settings/123) → Page not found, not Home */}
-        <Route path="*" element={<NotFound />} />
       </Route>
     </Route>
 
-    <Route path="*" element={<NotFound />} />
+    <Route path="*" element={<SessionAwareNotFound />} />
   </Routes>
 );
 
