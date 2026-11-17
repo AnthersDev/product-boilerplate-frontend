@@ -1,5 +1,4 @@
-import { FileInput, InputField, SelectBox, SettingLayout, show } from '@marmeto_engineering/anthers-components';
-import { Upload } from 'lucide-react';
+import { FileUploader, InputField, SelectBox, SettingLayout } from '@marmeto_engineering/anthers-components';
 
 export interface GeneralSettingsValues {
   workspaceName: string;
@@ -65,23 +64,23 @@ const GeneralSettings = ({ settings, description, errors, onChange }: GeneralSet
     <SettingLayout title="Brand Assets" description="Keep your workspace identity consistent across the app.">
       <div className="grid gap-4 md:grid-cols-2">
         <FileUploadField
-          id="brand-logo"
+          key={`brand-logo:${settings.brandLogo}`}
           title="Upload Brand Logo"
           accept=".png,.jpg,.jpeg,image/png,image/jpeg"
           description="Accepts PNG, JPEG, JPG files, up to 5MB."
-          selectedFiles={settings.brandLogo}
+          savedFileNames={settings.brandLogo ? [settings.brandLogo] : []}
           onFilesSelected={(files) => {
-            if (files?.[0]) onChange('brandLogo', files[0].name);
+            onChange('brandLogo', files[0]?.name ?? '');
           }}
         />
         <FileUploadField
-          id="brand-favicon"
+          key={`brand-favicon:${settings.brandFavicon}`}
           title="Upload Brand Favicon"
           accept=".png,.jpg,.jpeg,image/png,image/jpeg"
           description="Accepts PNG, JPEG, JPG files, up to 5MB."
-          selectedFiles={settings.brandFavicon}
+          savedFileNames={settings.brandFavicon ? [settings.brandFavicon] : []}
           onFilesSelected={(files) => {
-            if (files?.[0]) onChange('brandFavicon', files[0].name);
+            onChange('brandFavicon', files[0]?.name ?? '');
           }}
         />
       </div>
@@ -92,101 +91,59 @@ const GeneralSettings = ({ settings, description, errors, onChange }: GeneralSet
       description="Upload and manage your brand documents here. Accepted formats include PDF, DOCX, and more."
     >
       <FileUploadField
-        id="brand-documents"
+        key={`brand-documents:${JSON.stringify(settings.brandDocuments)}`}
         title="Upload Brand Documents"
         accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx"
         description="Accepts PDF, DOC, DOCX, XLS, XLSX, PPT, PPTX files, up to 5MB."
         multiple
-        selectedFiles={settings.brandDocuments.join(', ')}
-        onFilesSelected={(files) => {
-          if (files)
-            onChange(
-              'brandDocuments',
-              Array.from(files, (file) => file.name),
-            );
-        }}
+        savedFileNames={settings.brandDocuments}
+        onFilesSelected={(files) =>
+          onChange(
+            'brandDocuments',
+            Array.from(files, (file) => file.name),
+          )
+        }
       />
     </SettingLayout>
   </div>
 );
 
 interface FileUploadFieldProps {
-  id: string;
   title: string;
   accept: string;
   description: string;
-  selectedFiles: string;
   multiple?: boolean;
+  savedFileNames: string[];
   onFilesSelected: (files: File[]) => void;
 }
 
-const MAX_UPLOAD_SIZE_BYTES = 5 * 1024 * 1024;
-
 const FileUploadField = ({
-  id,
   title,
   accept,
   description,
-  selectedFiles,
   multiple = false,
+  savedFileNames,
   onFilesSelected,
-}: FileUploadFieldProps) => {
-  const onUploadFilesSelected = (files: FileList | null) => {
-    const selectedFiles = Array.from(files ?? []);
-    if (selectedFiles.some((file) => file.size > MAX_UPLOAD_SIZE_BYTES)) {
-      show('Each file must be 5 MB or smaller.', { type: 'error' });
-      return;
-    }
-
-    const acceptedTypes = accept
-      .split(',')
-      .map((type) => type.trim().toLowerCase())
-      .filter(Boolean);
-    const supportedFiles = selectedFiles.filter((file) => {
-      const fileName = file.name.toLowerCase();
-      const fileType = file.type.toLowerCase();
-      return acceptedTypes.some((type) => {
-        if (type.startsWith('.')) return fileName.endsWith(type);
-        if (type.endsWith('/*')) return fileType.startsWith(type.slice(0, -1));
-        return fileType === type;
-      });
-    });
-
-    if (supportedFiles.length !== selectedFiles.length) {
-      show(`Some files are not supported. ${description}`, { type: 'error' });
-    }
-    if (supportedFiles.length) onFilesSelected(supportedFiles);
-  };
-
-  return (
-    <label
-      htmlFor={id}
-      className="relative flex min-h-40 cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-zinc-300 p-4 text-center transition focus-within:ring-2 focus-within:ring-blue-500 hover:bg-zinc-50"
-      onDragOver={(event) => event.preventDefault()}
-      onDrop={(event) => {
-        event.preventDefault();
-        onUploadFilesSelected(event.dataTransfer.files);
-      }}
-    >
-      <FileInput
-        id={id}
-        className="sr-only"
-        type="file"
-        accept={accept}
-        multiple={multiple}
-        aria-describedby={`${id}-description`}
-        onChange={(event) => onUploadFilesSelected(event.currentTarget.files)}
-      />
-      <Upload className="text-gray-600" size={24} strokeWidth={1.75} aria-hidden="true" />
-      <span className="text-title max-md:text-label mt-3 leading-snug font-semibold text-zinc-800">{title}</span>
-      <span className="text-label md:text-body mt-1 leading-normal text-zinc-500">
-        {selectedFiles || 'Drag & drop files here or click to browse'}
-      </span>
-      <span id={`${id}-description`} className="text-label md:text-body mt-2 leading-normal text-zinc-500">
-        {description}
-      </span>
-    </label>
-  );
-};
+}: FileUploadFieldProps) => (
+  <div className="space-y-2">
+    <FileUploader
+      heading={title}
+      description="Drag & drop files here or click to browse"
+      additionalText={description}
+      accept={accept.split(',').map((type) => type.trim())}
+      maxSizeMB={5}
+      multiple={multiple}
+      required={false}
+      onSelect={onFilesSelected}
+    />
+    {savedFileNames.length > 0 && (
+      <ul aria-label={`${title} selected files`} className="text-small space-y-1 text-zinc-600">
+        {savedFileNames.map((fileName, index) => (
+          <li key={`${fileName}-${index}`}>{fileName}</li>
+        ))}
+      </ul>
+    )}
+  </div>
+);
 
 export default GeneralSettings;

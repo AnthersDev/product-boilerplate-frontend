@@ -1,24 +1,37 @@
-import { useNavigate, useParams } from 'react-router-dom';
-import { PageLayout } from '@marmeto_engineering/anthers-components';
+import { UserDetailsLayout } from '@marmeto_engineering/anthers-components';
+
+import { useSession } from '@/features/auth';
+import { httpClient } from '@/services/api';
 
 /**
- * Placeholder for Nexus `UserDetails`. Row clicks from `UserListingLayout` land here.
- * Replace with Anthers user-details layout when permissions editing is added.
+ * Settings → Users → detail.
+ * Matches Nexus: Anthers `UserDetailsLayout` over `/user/:id/permission`.
  */
 const UserDetails = () => {
-  const navigate = useNavigate();
-  const { id } = useParams<{ id: string }>();
+  const { data: session } = useSession();
+
+  if (!session?.user.id) {
+    return <div className="p-6">Loading…</div>;
+  }
+
+  // Mock sessions with manage permission behave as owner so permission editing matches Nexus UX.
+  const currentUserType: 'owner' | 'user' = session.permissions.includes('settings.userAndPermissions.manage')
+    ? 'owner'
+    : 'user';
 
   return (
-    <PageLayout
-      title="User details"
-      description="User permission editing will live here (same pattern as Nexus)."
-      onBack={() => navigate('/settings/users')}
-    >
-      <p className="text-body text-zinc-600">
-        Selected user id: <span className="font-medium text-zinc-900">{id}</span>
-      </p>
-    </PageLayout>
+    <UserDetailsLayout
+      apiClient={httpClient}
+      currentUserId={session.user.id}
+      currentUserType={currentUserType}
+      userPermissions={session.permissions}
+      onSaveSuccess={() => {
+        // Toast is handled inside UserDetailsLayout.
+      }}
+      onError={(message) => {
+        console.error('Error updating user details', message);
+      }}
+    />
   );
 };
 

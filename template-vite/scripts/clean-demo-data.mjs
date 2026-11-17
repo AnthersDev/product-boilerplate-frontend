@@ -53,7 +53,14 @@ const homeServicePath = 'src/features/home/services/home-service.ts';
 const homeIndexPath = 'src/features/home/index.ts';
 const homePagePath = 'src/pages/Home.tsx';
 const homeContentPath = 'src/features/home/home-page-content.tsx';
+const registrationFormPath = 'src/pages/registration/vendor-registration-form.ts';
 const readmePath = 'README.md';
+
+const cleanRegistrationForm = `/** Empty registration form after \`npm run clean:demo\`. Load your product form JSON here. */
+export const vendorRegistrationSampleForm = {
+  sections: [],
+};
+`;
 
 const cleanHomeHook = `import { useQuery } from '@tanstack/react-query';
 
@@ -237,24 +244,8 @@ const changes = [
     return result;
   }),
   update(homeContentPath, (source) => {
-    let result = replaceOnce(source, '  Button,\n', '', homeContentPath, 'export const HomePageSections');
-    result = replaceOnce(
-      result,
-      "import { useNavigate } from 'react-router-dom';\n",
-      '',
-      homeContentPath,
-      'export const HomePageSections',
-    );
-    result = replaceOnce(
-      result,
-      "import { env } from '@/libs/env';\n",
-      '',
-      homeContentPath,
-      'export const HomePageSections',
-    );
-    result = replaceOnce(result, '  const navigate = useNavigate();\n', '', homeContentPath, 'const hasInsights');
-    result = replaceOnce(
-      result,
+    let result = replaceOnce(
+      source,
       `        actions={
           env.useMockApi ? (
             <Button variant="outline" onClick={() => navigate('/?home=default')}>
@@ -280,11 +271,33 @@ const changes = [
       'export const HomePageSections',
     );
   }),
+  update(registrationFormPath, (source) => {
+    if (!source.includes("id: 'company'") && source.includes('sections: []')) {
+      return source.includes('Empty registration form after') ? source : cleanRegistrationForm;
+    }
+    if (source.trim() === cleanRegistrationForm.trim()) return source;
+    return cleanRegistrationForm;
+  }),
   update(readmePath, (source) => {
+    let result = source;
     const demoDescription = 'Home (Anthers shell). Mock demos: `?home=empty`, `?home=error`';
-    if (!source.includes(demoDescription)) return source;
+    if (result.includes(demoDescription)) {
+      result = replaceOnce(result, demoDescription, 'Home (Anthers shell)', readmePath, 'Home (Anthers shell)');
+    }
 
-    return replaceOnce(source, demoDescription, 'Home (Anthers shell)', readmePath, 'Home (Anthers shell)');
+    const registrationDemo =
+      'Vendor registration demo (`FormPreviewPage` multi-section sample: Company → Brand → Bank → Contact)';
+    if (result.includes(registrationDemo)) {
+      result = replaceOnce(
+        result,
+        registrationDemo,
+        'Vendor registration (`FormPreviewPage`; sample sections cleared by `npm run clean:demo`)',
+        readmePath,
+        'sample sections cleared by',
+      );
+    }
+
+    return result;
   }),
 ];
 
@@ -305,4 +318,4 @@ for (const [relativePath, content] of changed) {
   writeFileSync(path.join(root, relativePath), content);
 }
 
-log(`Cleaned demo report data and homepage states in ${changed.length} files.`);
+log(`Cleaned demo report data, homepage states, and registration sample form in ${changed.length} files.`);

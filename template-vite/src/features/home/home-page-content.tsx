@@ -13,6 +13,7 @@ import {
 import { ArrowRight, ExternalLink, Link, MessageCircleQuestionMark } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
+import { PermissionGuard } from '@/components/PermissionGuard';
 import { StatusScreen } from '@/components/StatusScreen';
 import { env } from '@/libs/env';
 
@@ -78,6 +79,25 @@ export const HomePageSections = ({ data }: { data: HomePageDataProps }) => {
 
   return (
     <>
+      {/* Sample: button only for users with users-and-permissions manage (owner/admin in mock). */}
+      <PermissionGuard requiredPermissions="settings.userAndPermissions.manage">
+        <div className="mb-4 flex flex-wrap items-center gap-3">
+          <Button
+            variant="outline"
+            onClick={() => navigate('/settings/users')}
+            endIcon={<ArrowRight size={16} strokeWidth={1.75} />}
+          >
+            Manage users
+          </Button>
+          {env.useMockApi && (
+            <p className="text-small text-zinc-500">
+              Visible because your session has <code>settings.userAndPermissions.manage</code>. Switch to a member org
+              (or sign in as a member) to hide this button.
+            </p>
+          )}
+        </div>
+      </PermissionGuard>
+
       {hasInsights && (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-[repeat(auto-fit,minmax(250px,1fr))]">
           {data.insights.map((card) => (

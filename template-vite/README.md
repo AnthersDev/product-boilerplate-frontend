@@ -70,7 +70,7 @@ When you are ready to build your application, run:
 npm run clean:demo
 ```
 
-This removes the seeded report rows and saved views, and removes the home-page demo state switcher. It keeps the mock API and authentication scaffolding available for local development.
+This removes the seeded report rows and saved views, removes the home-page demo state switcher, and clears the **Registration** page sample form fields (`vendor-registration-form.ts` → empty `sections`). It keeps the mock API, authentication scaffolding, and the Registration route/shell available for local development.
 
 ### 5. Troubleshooting
 
@@ -102,15 +102,18 @@ More detail: [docs/PROJECT_STRUCTURE.md](./docs/PROJECT_STRUCTURE.md), [docs/](.
 | `/select-org` | Signed-in users | Choose an organization |
 | `/` | Signed-in + org | Home (Anthers shell). Mock demos: `?home=empty`, `?home=error` |
 | `/analytics/reports` | Signed-in + org | `AdvancedDataTable` listing: search, filters, bulk actions, saved views (including **Empty demo**), row ⋮ menu |
+| `/registration` | Signed-in + org | Vendor registration demo (`FormPreviewPage` multi-section sample: Company → Brand → Bank → Contact) |
 | `/settings` | Signed-in + org | Settings hub (general, users, notifications) |
-| `/settings/users` | Signed-in + org | User management list |
-| `/settings/users/:id` | Signed-in + org | User detail |
+| `/settings/users` | Signed-in + org | User management list (`UserListingLayout`) |
+| `/settings/users/create` | Signed-in + org | Add user (`UserCreationLayout`) |
+| `/settings/users/:id` | Signed-in + org | Edit user permissions (`UserDetailsLayout`) |
 | `/settings/notifications` | Signed-in + org | Notification sender / look & feel / list |
 | `/settings/notifications/:id` | Signed-in + org | Notification template editor |
 | `/whats-new` | Signed-in + org | Release notes placeholder |
 | `/auth/mock-callback` | Mock API only | Stands in for opening the magic link |
+| `*` (unknown) | Signed-in + org (in shell) or public | **Page not found** — does not redirect to Home (e.g. `/settings/123`) |
 
-Any other path redirects to `/`. Sign out clears the session and sends you to `/login`. Wrap new signed-in routes in `<RequireSession requireOrganization />` in `src/routes/AppRoutes.tsx`. Add sidebar items in `src/config/navigation.ts`. New product domains can start from `src/features/_feature-template_/`.
+Sign out clears the session and sends you to `/login`. Wrap new signed-in routes in `<RequireSession requireOrganization />` in `src/routes/AppRoutes.tsx`. Add sidebar items in `src/config/navigation.ts`. New product domains can start from `src/features/_feature-template_/`.
 
 ### Authentication
 
@@ -161,7 +164,12 @@ Expected auth/session endpoints (envelope `{ status, message, data }`, credentia
 | `GET /home` | Home page payload ([`HomePageDataProps`](./src/features/home/types.ts)) |
 | `GET /reports` | Reports listing (`edges` + `pageInfo`; query `q`, `payment_status`, `channel`, `fulfillment_status`, cursors) |
 | `GET` / `POST /filter-view` | Listing filters and saved views (`?type=reports`). `PUT` / `DELETE /filter-view/:id` |
-| `GET /user` | Users connection (settings → user management) |
+| `GET /user` | Users list (settings → user management) |
+| `GET /user/permission` | Permission catalog for invite form |
+| `POST /user` | Invite user (`{ email, permissions }`) |
+| `GET /user/:id/permission` | User detail + permission catalog |
+| `PUT /user/:id/permission` | Update user permissions |
+| `DELETE /user/:id` | Remove user |
 | `GET /notification/` | Notifications connection |
 | `GET` / `PUT /notification-setting/` | Sender + look & feel |
 | `PATCH /notification/:id` | Toggle `isActive` |
@@ -171,9 +179,123 @@ Expected auth/session endpoints (envelope `{ status, message, data }`, credentia
 
 The magic link should land on `/select-org` after cookies are set.
 
+### Registration (vendor form demo)
+
+Signed-in route **`/registration`** (sidebar: **Registration**) demos Anthers **`FormPreviewPage`** inside **`PageLayout`**, matching the Chromatic story *Form Preview In App Layout → Vendor Registration*.
+
+| Piece | Location |
+| --- | --- |
+| Page | `src/pages/registration/Registration.tsx` |
+| Sample form JSON | `src/pages/registration/vendor-registration-form.ts` |
+| Nav | `src/config/navigation.ts` (`/registration`) |
+| Route | `src/routes/AppRoutes.tsx` |
+
+Stepper sections in the sample: **Company → Brand → Bank → Contact**. Editing fields registers with the shell **Global Save** bar (`AppLayout` / `GlobalSaveProvider`); Save shows a demo success toast (no backend yet).
+
+To reuse for a real product form, swap `vendorRegistrationSampleForm` for API-loaded JSON (same shape as Anthers advance-form-builder `formJson`) and wire `onSubmit` to your endpoint.
+
+### Permission checks (hide UI by role)
+
+Use `PermissionGuard` (Nexus-style) to hide buttons or block page sections from session permissions. Hook: `useHasPermission` from `@/features/auth`.
+
+```tsx
+import { PermissionGuard } from '@/components/PermissionGuard';
+import { useHasPermission } from '@/features/auth';
+
+// Hide a button unless the user has the permission (default fallback)
+<PermissionGuard requiredPermissions="settings.userAndPermissions.manage">
+  <Button onClick={() => navigate('/settings/users')}>Manage users</Button>
+</PermissionGuard>
+
+// Full section / page: show Anthers AccessDenied instead of hiding
+<PermissionGuard requiredPermissions={['settings.general.manage']} fallback="denied">
+  <GeneralSettings />
+</PermissionGuard>
+
+// Imperative check
+const canManageUsers = useHasPermission('settings.userAndPermissions.manage');
+```
+
+| Prop | Meaning |
+| --- | --- |
+| `requiredPermissions` | One string or a list |
+| `requireAll` | `true` = need every permission; default = any one |
+| `fallback` | `hidden` (default), `denied` (`AccessDenied`), or a custom node |
+
+**Sample on Home:** a **Manage users** button wrapped in `PermissionGuard` for `settings.userAndPermissions.manage`. With the mock API, owner/admin orgs see it; switch to **Initech Outlet** (member) and it disappears.
+
 ### Branding
 
 Edit `src/config/brand.ts` and replace `public/logo.svg` / `public/login-background.svg` (or point `brand.ts` at other assets). Login logo renders ~64px tall. Brand colour, font, and radius live in `src/theme/theme.css`.
+
+Keep these in sync when you change the display name by hand:
+
+| File | Field |
+| --- | --- |
+| `src/config/brand.ts` | `brand.name` |
+| `index.html` | `<title>` |
+| `vite.config.ts` | `appName` (PWA name / short_name) |
+
+`VITE_APP_NAME` in `.env.local` is a **technical** slug for CSRF and the refresh lock (must match the backend `APP_NAME`). It is not the marketing product name.
+
+### How to add a new page (manual, no AI)
+
+Use this when you are editing the app yourself. Example: an **Inventory** page at `/inventory`.
+
+#### 1. Create the page component
+
+Add `src/pages/Inventory.tsx`:
+
+```tsx
+import React from 'react';
+import { PageLayout } from '@marmeto_engineering/anthers-components';
+
+const Inventory = () => (
+  <PageLayout title="Inventory" description="Track stock levels for your catalog.">
+    <p className="text-body text-zinc-600">Inventory content goes here.</p>
+  </PageLayout>
+);
+
+export default Inventory;
+```
+
+#### 2. Register the route
+
+In `src/routes/AppRoutes.tsx`, lazy-load the page and add it inside the signed-in + organization shell (same tree as Home and Reports):
+
+```tsx
+const Inventory = lazy(() => import('@/pages/Inventory'));
+
+// inside <Route element={<RequireSession requireOrganization />}> → <AppShell>:
+<Route path="/inventory" element={<Inventory />} />
+```
+
+#### 3. Add a sidebar item
+
+In `src/config/navigation.ts`, import an icon and push into `mainNavItems`:
+
+```tsx
+import { Package } from 'lucide-react';
+
+// inside mainNavItems:
+{
+  id: 'inventory',
+  label: 'Inventory',
+  href: '/inventory',
+  icon: icon(Package),
+},
+```
+
+#### 4. Check it
+
+```sh
+npm run type-check && npm run lint
+npm run dev
+```
+
+Sign in, pick an organization, open **Inventory** in the sidebar (or visit http://localhost:3000/inventory). Signed-out visits should redirect to `/login`.
+
+For a page that also needs its own API + feature folder, copy `src/features/_feature-template_/` and follow [AGENTS.md](./AGENTS.md) “Recipe: add a product feature” — or the feature README under that folder.
 
 ### Environment variables
 
@@ -187,6 +309,21 @@ See [`.env.example`](./.env.example). Only `VITE_*` values are exposed to the br
 | `VITE_SSO_APP_ID` | Shows Google SSO when set |
 | `VITE_USE_MOCK_API` | Force mocks on/off (`dev` defaults to on) |
 | `VITE_MOCK_API_DELAY_MS` | Artificial mock latency |
+| `VITE_PUBLIC_POSTHOG_PROJECT_TOKEN` | Optional. When set, PostHog boots (pageviews + identify). Leave unset to keep analytics off |
+| `VITE_PUBLIC_POSTHOG_HOST` | PostHog host (default `https://us.i.posthog.com`) |
+| `VITE_INTERCOM_APP_ID` | Optional. When set, Intercom messenger boots for signed-in users |
+| `VITE_INTERCOM_API_BASE` | Intercom API base (default `https://api-iam.intercom.io`) |
+
+### Analytics (PostHog + Intercom)
+
+Same pattern as Ping / Nexus: **no key → no-op**; set the env var (or equivalent in your deploy env) and it starts working.
+
+| Tool | Enable with | Behavior |
+| --- | --- | --- |
+| PostHog | `VITE_PUBLIC_POSTHOG_PROJECT_TOKEN` | Init on load, `$pageview` on route change, `identify` when session has a user, `reset` on sign-out |
+| Intercom | `VITE_INTERCOM_APP_ID` | Loads the widget script, boots for signed-in users, shuts down on sign-out |
+
+Code: `src/libs/analytics/*`, wired through `AnalyticsProvider` in `src/App.tsx`.
 
 ### Scripts
 
@@ -198,7 +335,7 @@ See [`.env.example`](./.env.example). Only `VITE_*` values are exposed to the br
 | `lint` / `lint:fix` | ESLint |
 | `format` | Prettier |
 | `type-check` | `tsc --noEmit` |
-| `clean:demo` | Strip demo mock data / homepage demo controls |
+| `clean:demo` | Strip demo mock data, homepage demo controls, and registration sample form fields |
 
 ### Git hooks
 
@@ -219,6 +356,12 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md) for branching, commits, and PR checklis
 ### AI agents
 
 Hand agents [AGENTS.md](./AGENTS.md) (attach / `@AGENTS.md` in Cursor). It is the living playbook for stack, folder rules, current routes/features, and how to add more. **Update AGENTS.md in the same PR** when you add features, routes, mocks, or env contracts.
+
+#### Product name on AI-assisted setup (agents only)
+
+When a developer uses an AI agent to set up or brand a newly scaffolded repo, the agent **must ask once for the product display name** and fill it in everywhere listed under [Branding](#branding) (`brand.name`, `index.html` title, `vite.config.ts` `appName`). Optionally set a slug for `VITE_APP_NAME` in `.env.local` if the human provides one.
+
+This does **not** apply to the manual `create-frontend` / `npx` path: the CLI only sets the folder / `package.json` name. Humans branding by hand edit those files themselves (see Branding above).
 
 ---
 

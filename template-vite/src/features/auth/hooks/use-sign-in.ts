@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 
+import { shutdownIntercom } from '@/libs/analytics';
 import { ApiError } from '@/services/api';
 
 import {
@@ -35,6 +36,7 @@ export const useSignOut = () => {
     // Cancel in-flight session fetches so they cannot restore a signed-in cache after logout.
     await queryClient.cancelQueries({ queryKey: authQueryKeys.session() });
     queryClient.setQueryData(authQueryKeys.session(), null);
+    shutdownIntercom();
     navigate('/login', { replace: true });
   };
 
