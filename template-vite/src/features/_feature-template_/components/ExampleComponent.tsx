@@ -1,29 +1,28 @@
-import { useState } from 'react';
 import { useExample } from '../hooks';
 import styles from './ExampleComponent.module.css';
 
 export const ExampleComponent = () => {
-  const [value, setValue] = useState('');
-  const { doSomething, isLoading, error } = useExample();
-
-  const onSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    await doSomething(value);
-  };
+  const examples = useExample();
 
   return (
     <div className={styles.container}>
-      <h2>Example Component</h2>
-      {error && <div className={styles.error}>{error}</div>}
-      <form onSubmit={onSubmit}>
-        <div className={styles.field}>
-          <label htmlFor="value">Value</label>
-          <input id="value" type="text" value={value} onChange={(e) => setValue(e.target.value)} required />
+      <h2>Examples</h2>
+      {examples.isPending && <p>Loading examples…</p>}
+      {examples.isError && (
+        <div className={styles.error} role="alert">
+          <p>{examples.error.message}</p>
+          <button type="button" onClick={() => examples.refetch()}>
+            Try again
+          </button>
         </div>
-        <button type="submit" disabled={isLoading}>
-          {isLoading ? 'Loading...' : 'Submit'}
-        </button>
-      </form>
+      )}
+      {examples.isSuccess && (
+        <ul className={styles.list}>
+          {examples.data.map((item) => (
+            <li key={item.id}>{item.name}</li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 };

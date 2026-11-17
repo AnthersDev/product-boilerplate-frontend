@@ -1,3 +1,5 @@
+import { exampleMockRoutes } from '@/features/_feature-template_';
+
 import { authMockRoutes } from './auth-handlers';
 import { homeMockRoutes } from './home-handlers';
 import { notificationMockRoutes } from './notification-handlers';
@@ -16,4 +18,6 @@ export const mockRoutes: MockRoute[] = [
   ...notificationMockRoutes,
   ...homeMockRoutes,
   ...reportsMockRoutes,
+  // Sample for new features. When you copy `_feature-template_`, point this at your routes.
+  ...exampleMockRoutes,
 ];

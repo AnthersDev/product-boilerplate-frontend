@@ -59,7 +59,7 @@ Private package: `@marmeto_engineering/anthers-components`. Local: `npm login`. 
 | `auth` | Session, sign-in, organizations, logout hooks/services |
 | `home` | Home page data + content |
 | `reports` | Reports table columns/types for Anthers `AdvancedDataTable` |
-| `_feature-template_` | Copy this when adding a **new** domain — not a live feature |
+| `_feature-template_` | Copy this when adding a **new** domain — not a live screen. Sample is `GET /examples` via `httpClient`, React Query, and `exampleMockRoutes` |
 
 ### Pages / routes
 
@@ -97,8 +97,9 @@ Examples used today: `settings.userAndPermissions.manage`, `settings.notificatio
 | `notification-handlers.ts` | `/notification/`, `/notification-setting`, detail/toggle/preview/test |
 | `reports-handlers.ts` | Reports + saved filter views |
 | `handlers.ts` | Registers all mock route arrays |
+| `_feature-template_/services/example-mock.ts` | `GET /examples` (copy-me sample, not a product endpoint) |
 
-Register new mock modules in `handlers.ts`. Match real backend paths and envelope.
+Register new mock modules in `handlers.ts`. Match real backend paths and envelope. The feature scaffold’s handler is already registered; retarget that line when you copy it.
 
 ---
 
@@ -127,12 +128,12 @@ Run `npm run build` before claiming production-ready, or when touching Vite/conf
 
 ## Recipe: add a product feature
 
-1. Copy `src/features/_feature-template_` → `src/features/<domain>/` and trim demos.
-2. Add types, service (use `httpClient`), hooks (React Query), components as needed; export via `index.ts`.
+1. Copy `src/features/_feature-template_` → `src/features/<domain>/`. Keep the `httpClient` service, `queryOptions`, `useQuery` hook, and mock route. Rename them. Do not swap in `useState` for server data.
+2. Export via `index.ts`.
 3. Add page(s) under `src/pages/...`.
 4. Register route(s) in `src/routes/AppRoutes.tsx` inside the correct `RequireSession` / `requireOrganization` tree.
 5. Add nav in `src/config/navigation.ts` if it belongs in the sidebar.
-6. Add mocks under `src/services/mocks/` and register in `handlers.ts`.
+6. Update `src/services/mocks/handlers.ts`: replace `exampleMockRoutes` with the new feature routes only while the scaffold's `exampleMockRoutes` is still present. Otherwise, add the new routes while preserving routes for existing features. Update the feature's README with its routes and setup.
 7. Wire permissions if the UI is gated (session permissions + mock user/auth).
 8. Update **this file** (Current map + Changelog) and [README.md](./README.md) routes/API tables when the contract is user-facing.
 
@@ -185,5 +186,6 @@ Record notable capability additions here so future sessions don’t rediscover t
 
 | Date | Change |
 | --- | --- |
+| 2026-11-16 | `_feature-template_` sample is `GET /examples`: `httpClient`, React Query, and `exampleMockRoutes` registered in `handlers.ts` |
 | 2026-11-13 | Auth: dual clients + CSRF + refresh lock; settings hub; users + notifications (Anthers); reports `AdvancedDataTable`; mocks for auth/home/user/notification/reports; Node 24 |
 | — | _Add a row whenever you land a feature agents should know about._ |
