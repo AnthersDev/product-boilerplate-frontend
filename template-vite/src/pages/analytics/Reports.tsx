@@ -1,4 +1,10 @@
 import React, { useMemo, useState } from 'react';
+/**
+ * Storybook:
+ * - ListPageLayout — https://main--685923032e27da931cdadb63.chromatic.com/?path=/story/layouts-dashboard-layouts-list-page-layout--docs
+ * - AdvancedDataTable — https://main--685923032e27da931cdadb63.chromatic.com/?path=/story/components-data-display-advanced-data-table--docs
+ * - show (Toast) — https://main--685923032e27da931cdadb63.chromatic.com/?path=/story/components-feedback-and-status-toast--docs
+ */
 import { ListPageLayout, show } from '@marmeto_engineering/anthers-components';
 
 import { reportColumns, type ReportOrderEdge } from '@/features/reports';

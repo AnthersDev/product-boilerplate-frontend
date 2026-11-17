@@ -86,13 +86,26 @@ This removes the seeded report rows and saved views, removes the home-page demo 
 
 | Area | Stack / location |
 | --- | --- |
-| UI | React 19, Anthers components, Tailwind 4, Lucide icons |
+| UI | React 19, Anthers components ([Storybook index](./docs/anthers-storybook.md)), Tailwind 4, Lucide icons |
 | Data | Axios (`httpClient` + `authClient`), TanStack Query |
 | Auth | Magic link + optional Google SSO, org picker, cookie session + refresh |
 | Structure | Feature folders under `src/features/*`, pages under `src/pages/*` |
 | Local API | Mock routes in `src/services/mocks` (on by default in `npm run dev`) |
 
 More detail: [docs/PROJECT_STRUCTURE.md](./docs/PROJECT_STRUCTURE.md), [docs/](./docs).
+
+### Anthers Storybook
+
+Anthers UI docs live on Chromatic: [Storybook](https://main--685923032e27da931cdadb63.chromatic.com/).
+
+Every Anthers layout/component used in this template has a **Storybook comment above its import** in source, plus a full index:
+
+| Resource | Link |
+| --- | --- |
+| Index of all used components | [docs/anthers-storybook.md](./docs/anthers-storybook.md) |
+| Chromatic home | [main--685923032e27da931cdadb63.chromatic.com](https://main--685923032e27da931cdadb63.chromatic.com/) |
+
+When you add a new Anthers import, add the matching Storybook URL comment (and a row in `docs/anthers-storybook.md`).
 
 ### App routes
 
@@ -103,6 +116,10 @@ More detail: [docs/PROJECT_STRUCTURE.md](./docs/PROJECT_STRUCTURE.md), [docs/](.
 | `/` | Signed-in + org | Home (Anthers shell). Mock demos: `?home=empty`, `?home=error` |
 | `/analytics/reports` | Signed-in + org | `AdvancedDataTable` listing: search, filters, bulk actions, saved views (including **Empty demo**), row ⋮ menu |
 | `/registration` | Signed-in + org | Vendor registration demo (`FormPreviewPage` multi-section sample: Company → Brand → Bank → Contact) |
+| `/permissions` | Signed-in + org | Nested **Permissions** sidebar demo (overview + allowed / access denied / hidden actions) |
+| `/permissions/allowed` | Signed-in + org | `PermissionGuard` allow path (`settings.userAndPermissions.manage`) |
+| `/permissions/access-denied` | Signed-in + org | Always shows Anthers `AccessDenied` |
+| `/permissions/hidden` | Signed-in + org | Page open for all; manage button uses `fallback="hidden"` |
 | `/settings` | Signed-in + org | Settings hub (general, users, notifications) |
 | `/settings/users` | Signed-in + org | User management list (`UserListingLayout`) |
 | `/settings/users/create` | Signed-in + org | Add user (`UserCreationLayout`) |
@@ -181,7 +198,7 @@ The magic link should land on `/select-org` after cookies are set.
 
 ### Registration (vendor form demo)
 
-Signed-in route **`/registration`** (sidebar: **Registration**) demos Anthers **`FormPreviewPage`** inside **`PageLayout`**, matching the Chromatic story *Form Preview In App Layout → Vendor Registration*.
+Signed-in route **`/registration`** (sidebar: **Registration**) demos Anthers **`FormPreviewPage`** inside **`PageLayout`**, matching the Chromatic story [*Form Preview In App Layout → Vendor Registration*](https://main--685923032e27da931cdadb63.chromatic.com/?path=/story/layouts-setting-layouts-registration-form-long-form-with-sections-form-preview-in-app-layout--vendor-registration). Full Anthers Storybook map: [docs/anthers-storybook.md](./docs/anthers-storybook.md).
 
 | Piece | Location |
 | --- | --- |
@@ -197,6 +214,8 @@ To reuse for a real product form, swap `vendorRegistrationSampleForm` for API-lo
 ### Permission checks (hide UI by role)
 
 Use `PermissionGuard` (Nexus-style) to hide buttons or block page sections from session permissions. Hook: `useHasPermission` from `@/features/auth`.
+
+**Try it in the app:** open the nested **Permissions** group in the sidebar (`/permissions`). It walks through allowed content, the AccessDenied screen, hidden actions, and Anthers sidebar lock icons (`requiredPermissions` on menu items + `userPermissions` on `Sidebar`). Pages live under `src/pages/permissions/`; nav config is in `src/config/navigation.ts`.
 
 ```tsx
 import { PermissionGuard } from '@/components/PermissionGuard';

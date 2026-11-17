@@ -1,4 +1,5 @@
 import React from 'react';
+/** Storybook: PageLayout — https://main--685923032e27da931cdadb63.chromatic.com/?path=/story/layouts-page-layout--docs */
 import { PageLayout } from '@marmeto_engineering/anthers-components';
 
 const WhatsNew = () => (

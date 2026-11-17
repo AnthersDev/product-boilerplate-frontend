@@ -1,5 +1,7 @@
 # 🧱 Components And Styling
 
+Prefer Anthers components from `@marmeto_engineering/anthers-components`. For props, variants, and demos, open the Chromatic Storybook link in the comment above each Anthers import, or see [anthers-storybook.md](./anthers-storybook.md).
+
 ## Components Best Practices
 
 ### Colocate things as close as possible to where it's being used

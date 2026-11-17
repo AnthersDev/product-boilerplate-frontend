@@ -1,3 +1,4 @@
+/** Storybook: UserDetailsLayout — https://main--685923032e27da931cdadb63.chromatic.com/?path=/story/layouts-setting-layouts-permission-module-user-details-layout--docs */
 import { UserDetailsLayout } from '@marmeto_engineering/anthers-components';
 
 import { useSession } from '@/features/auth';

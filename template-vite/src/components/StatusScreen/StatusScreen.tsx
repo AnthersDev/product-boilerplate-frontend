@@ -1,4 +1,5 @@
 import React, { type ReactNode } from 'react';
+/** Storybook: HeadingWithDescription — https://main--685923032e27da931cdadb63.chromatic.com/?path=/story/components-data-display-heading-with-description--docs */
 import { HeadingWithDescription } from '@marmeto_engineering/anthers-components';
 
 export interface StatusScreenProps {

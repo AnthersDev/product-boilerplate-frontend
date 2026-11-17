@@ -1,5 +1,6 @@
 import React, { lazy } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
+/** Storybook: Button — https://main--685923032e27da931cdadb63.chromatic.com/?path=/story/components-actions-button--docs */
 import { Button } from '@marmeto_engineering/anthers-components';
 
 import Loading from '@/components/Loading';
@@ -20,6 +21,10 @@ const UserDetails = lazy(() => import('@/pages/settings/user-management/UserDeta
 const Notifications = lazy(() => import('@/pages/settings/notifications/Notifications'));
 const NotificationDetail = lazy(() => import('@/pages/settings/notifications/NotificationDetail'));
 const WhatsNew = lazy(() => import('@/pages/WhatsNew'));
+const PermissionsOverview = lazy(() => import('@/pages/permissions/PermissionsOverview'));
+const PermissionsAllowed = lazy(() => import('@/pages/permissions/PermissionsAllowed'));
+const PermissionsAccessDenied = lazy(() => import('@/pages/permissions/PermissionsAccessDenied'));
+const PermissionsHidden = lazy(() => import('@/pages/permissions/PermissionsHidden'));
 const NotFound = lazy(() => import('@/pages/NotFound'));
 const Login = lazy(() => import('@/pages/auth/Login'));
 const MockSignIn = lazy(() => import('@/pages/auth/MockSignIn'));
@@ -72,6 +77,10 @@ const AppRoutes = () => (
         <Route path="/" element={<Home />} />
         <Route path="/analytics/reports" element={<Reports />} />
         <Route path="/registration" element={<Registration />} />
+        <Route path="/permissions" element={<PermissionsOverview />} />
+        <Route path="/permissions/allowed" element={<PermissionsAllowed />} />
+        <Route path="/permissions/access-denied" element={<PermissionsAccessDenied />} />
+        <Route path="/permissions/hidden" element={<PermissionsHidden />} />
         <Route path="/settings" element={<Settings />} />
         <Route path="/settings/users" element={<UsersList />} />
         {/* `create` must be registered before `:id` so it is not treated as a user id */}

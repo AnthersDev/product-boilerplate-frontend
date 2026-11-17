@@ -1,4 +1,16 @@
 import React from 'react';
+/**
+ * Storybook:
+ * - Badge — https://main--685923032e27da931cdadb63.chromatic.com/?path=/story/components-data-display-badge--docs
+ * - Button — https://main--685923032e27da931cdadb63.chromatic.com/?path=/story/components-actions-button--docs
+ * - Card — https://main--685923032e27da931cdadb63.chromatic.com/?path=/story/components-data-display-card-main--docs
+ * - FeatureCard — https://main--685923032e27da931cdadb63.chromatic.com/?path=/story/components-data-display-feature-card--docs
+ * - ImageDescription — https://main--685923032e27da931cdadb63.chromatic.com/?path=/story/components-data-display-image-description--docs
+ * - InsightCards — https://main--685923032e27da931cdadb63.chromatic.com/?path=/story/components-data-display-card-insight-cards--docs
+ * - LoadingState — https://main--685923032e27da931cdadb63.chromatic.com/?path=/story/components-feedback-and-status-loading-state--docs
+ * - Onboarding — https://main--685923032e27da931cdadb63.chromatic.com/?path=/story/components-data-display-onboarding--docs
+ * - PartnerCard — https://main--685923032e27da931cdadb63.chromatic.com/?path=/story/components-data-display-card-partnercard--docs
+ */
 import {
   Badge,
   Button,

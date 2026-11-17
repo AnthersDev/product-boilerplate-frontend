@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+/** Storybook: Button — https://main--685923032e27da931cdadb63.chromatic.com/?path=/story/components-actions-button--docs */
 import { Button } from '@marmeto_engineering/anthers-components';
 
 import { StatusScreen } from '@/components/StatusScreen';
