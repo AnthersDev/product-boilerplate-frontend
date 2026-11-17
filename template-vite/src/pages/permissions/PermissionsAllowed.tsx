@@ -29,7 +29,7 @@ const PermissionsAllowed = () => {
         title="Allowed content"
         description="You have settings.userAndPermissions.manage, so PermissionGuard rendered this page."
       >
-        <div className="flex max-w-xl flex-col gap-4 text-body text-zinc-700">
+        <div className="text-body flex max-w-xl flex-col gap-4 text-zinc-700">
           <p>
             Use this pattern for whole screens or sections that must not be usable without a permission. Prefer{' '}
             <code>fallback=&quot;denied&quot;</code> over a blank page so users know why they are blocked.

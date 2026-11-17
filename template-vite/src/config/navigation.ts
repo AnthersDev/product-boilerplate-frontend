@@ -128,13 +128,13 @@ const isPathActive = (pathname: string, item: NavItemProps) => {
 const withActiveNavStateRecursive = (items: NavItemProps[], pathname: string): NavItemProps[] =>
   items.map((item) => {
     const subItems = item.subItems ? withActiveNavStateRecursive(item.subItems, pathname) : undefined;
-    const childActive = Boolean(subItems?.some((sub) => sub.isActive || sub.isExpanded));
-    const isActive = isPathActive(pathname, item) || childActive;
+    const isChildActive = Boolean(subItems?.some((sub) => sub.isActive || sub.isExpanded));
+    const isActive = isPathActive(pathname, item) || isChildActive;
 
     return {
       ...item,
       isActive,
-      isExpanded: childActive || item.isExpanded,
+      isExpanded: isChildActive || item.isExpanded,
       ...(subItems ? { subItems } : {}),
     };
   });

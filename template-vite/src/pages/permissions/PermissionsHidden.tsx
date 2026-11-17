@@ -17,14 +17,14 @@ import { env } from '@/libs/env';
  */
 const PermissionsHidden = () => {
   const navigate = useNavigate();
-  const canManageUsers = useHasPermission('settings.userAndPermissions.manage');
+  const hasManageUsersPermission = useHasPermission('settings.userAndPermissions.manage');
 
   return (
     <PageLayout
       title="Hidden actions"
       description="The page is public to signed-in users. Manage actions only render when the session has permission."
     >
-      <div className="flex max-w-xl flex-col gap-6 text-body text-zinc-700">
+      <div className="text-body flex max-w-xl flex-col gap-6 text-zinc-700">
         <p>
           Default <code>PermissionGuard</code> fallback is <code>&quot;hidden&quot;</code> — good for toolbar buttons
           and optional cards. The page shell stays put so navigation does not feel broken.
@@ -50,8 +50,8 @@ const PermissionsHidden = () => {
 
         <p className="text-small text-zinc-500">
           Manage users button:{' '}
-          <strong className="text-zinc-800">{canManageUsers ? 'visible' : 'hidden'}</strong>
-          {env.useMockApi && !canManageUsers
+          <strong className="text-zinc-800">{hasManageUsersPermission ? 'visible' : 'hidden'}</strong>{' '}
+          {env.useMockApi && !hasManageUsersPermission
             ? ' — switch to Acme Retail (owner) or Globex Stores (admin) to reveal it.'
             : null}
         </p>
