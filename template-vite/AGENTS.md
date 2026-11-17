@@ -151,16 +151,22 @@ Run `npm run build` before claiming production-ready, or when touching Vite/conf
 **When:** A human asks an AI agent to scaffold, set up, or brand an app, including when they attach this file before the app exists or open a newly scaffolded app.  
 **When not:** Manual `create-frontend` / `npx` CLI use — the CLI creates the project in the current directory and does not ask for a display name. Humans edit branding themselves. Do not invent a scaffold folder or a product name without asking.
 
-1. **Ask once where to scaffold** when the app does not exist yet: “Where should I scaffold the app?” Wait for the answer. Do not default to the current directory, the CLI repo, or a folder beside the CLI.
+1. **Ask once where to scaffold** when the app does not exist yet: “Where should I scaffold the app?” Wait for the answer. Do not default to the current directory, a `create-frontend` checkout, or a folder beside one.
 
-   The answer is a folder chain from the user’s home directory. `->` separates folders. Spaces around `->` do not matter.
+   The answer is a folder chain from the user’s home directory. `->` separates folders. Spaces around `->` do not matter. The project folder name is `my-app` unless they name a different one in the same message.
 
    | They say | Scaffold in |
    | --- | --- |
-   | `Desktop` | `~/Desktop/<project-name>` |
-   | `Desktop -> Frontend` | `~/Desktop/Frontend/<project-name>` |
+   | `Desktop` | `~/Desktop/my-app` |
+   | `Desktop -> Frontend` | `~/Desktop/Frontend/my-app` |
 
-   Create any missing parent folders, then run `create-frontend` with that directory as the working directory. If the app is already scaffolded and they only asked to brand or change it, skip this question and do not move the project.
+   Create any missing parent folders. With that parent as the working directory (`~/Desktop` or `~/Desktop/Frontend`), create the app by running:
+
+   ```bash
+   npx --yes github:AnthersDev/create-frontend my-app
+   ```
+
+   If they named a different project, substitute that name for `my-app`. This downloads the scaffolder from GitHub. A local `create-frontend` repo is not required and must not be cloned, linked, or invoked (`npm link`, `node bin/index.js`, or a sibling checkout). If the command fails because SSH to GitHub is not set up, use `npx --yes git+https://github.com/AnthersDev/create-frontend.git my-app` instead. If the app is already scaffolded and they only asked to brand or change it, skip this question and do not move the project.
 
 2. **Ask once:** “What is the product display name?” (e.g. `Acme Retail`). Wait for the answer.
 3. **Fill it everywhere** (keep values identical):
@@ -264,6 +270,7 @@ Record notable capability additions here so future sessions don’t rediscover t
 
 | Date | Change |
 | --- | --- |
+| 2026-11-17 | First AI setup creates the app with `npx --yes github:AnthersDev/create-frontend my-app` in the chosen parent folder. A local `create-frontend` checkout is not required. |
 | 2026-11-17 | First AI setup asks where to scaffold before creating the app. Answers are a home-folder chain: `Desktop` or `Desktop -> Frontend`. |
 | 2026-11-17 | Analytics follows signed-in sessions and browser URLs; Intercom loading retries after failures and cancels pending boots on shutdown. Unknown routes select the public or shell 404 by session; registration country choices match available states; settings show filenames from draft values. |
 | 2026-11-17 | Registration `/registration`: `FormPreviewPage` + vendor sample JSON (Company/Brand/Bank/Contact); docs + FormPreview recipe. `PermissionGuard`; user management; 404; PostHog/Intercom; AI product-name setup |
