@@ -1,5 +1,6 @@
 import React, { useState, type MouseEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+/** Storybook: LoginPage — https://main--685923032e27da931cdadb63.chromatic.com/?path=/story/layouts-user-login-and-signup-authentication-loginpage--docs */
 import { LoginPage } from '@marmeto_engineering/anthers-components';
 
 import { brand } from '@/config';

@@ -1,4 +1,10 @@
 import { useNavigate } from 'react-router-dom';
+/**
+ * Storybook:
+ * - FormPreviewPage (Vendor Registration) — https://main--685923032e27da931cdadb63.chromatic.com/?path=/story/layouts-setting-layouts-registration-form-long-form-with-sections-form-preview-in-app-layout--vendor-registration
+ * - PageLayout — https://main--685923032e27da931cdadb63.chromatic.com/?path=/story/layouts-page-layout--docs
+ * - show (Toast) — https://main--685923032e27da931cdadb63.chromatic.com/?path=/story/components-feedback-and-status-toast--docs
+ */
 import { FormPreviewPage, PageLayout, show } from '@marmeto_engineering/anthers-components';
 
 import { vendorRegistrationSampleForm } from './vendor-registration-form';

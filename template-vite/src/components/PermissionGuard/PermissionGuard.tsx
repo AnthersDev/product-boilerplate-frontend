@@ -1,4 +1,9 @@
 import { type ReactNode } from 'react';
+/**
+ * Storybook:
+ * - AccessDenied — https://main--685923032e27da931cdadb63.chromatic.com/?path=/story/components-feedback-and-status-access-denied--docs
+ * - PermissionGuard (Anthers utils) — https://main--685923032e27da931cdadb63.chromatic.com/?path=/story/utils-permissionguard--docs
+ */
 import { AccessDenied } from '@marmeto_engineering/anthers-components';
 
 import { brand } from '@/config';

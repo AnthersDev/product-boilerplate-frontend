@@ -1,5 +1,12 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+/**
+ * Storybook:
+ * - PageLayout — https://main--685923032e27da931cdadb63.chromatic.com/?path=/story/layouts-page-layout--docs
+ * - SettingListLayout — https://main--685923032e27da931cdadb63.chromatic.com/?path=/story/layouts-setting-layouts-setting-list-layout--docs
+ * - show (Toast) — https://main--685923032e27da931cdadb63.chromatic.com/?path=/story/components-feedback-and-status-toast--docs
+ * - useGlobalSaveContext — https://main--685923032e27da931cdadb63.chromatic.com/?path=/story/utils-global-save-example--docs
+ */
 import { PageLayout, SettingListLayout, show, useGlobalSaveContext } from '@marmeto_engineering/anthers-components';
 import { Bell, Settings as SettingsIcon, Users } from 'lucide-react';
 import GeneralSettings, { type GeneralSettingsValues } from './GeneralSettings';

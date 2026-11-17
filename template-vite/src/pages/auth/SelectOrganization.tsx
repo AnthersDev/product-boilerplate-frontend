@@ -1,5 +1,10 @@
 import React, { useCallback, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+/**
+ * Storybook:
+ * - SelectOrganizationPage — https://main--685923032e27da931cdadb63.chromatic.com/?path=/story/layouts-user-login-and-signup-authentication-select-organization-page--docs
+ * - Button — https://main--685923032e27da931cdadb63.chromatic.com/?path=/story/components-actions-button--docs
+ */
 import { Button, SelectOrganizationPage } from '@marmeto_engineering/anthers-components';
 
 import { StatusScreen } from '@/components/StatusScreen';

@@ -1,3 +1,10 @@
+/**
+ * Storybook:
+ * - SettingLayout — https://main--685923032e27da931cdadb63.chromatic.com/?path=/story/layouts-dashboard-layouts-settings-layout--docs
+ * - InputField — https://main--685923032e27da931cdadb63.chromatic.com/?path=/story/components-data-entry-inputfield--docs
+ * - SelectBox — https://main--685923032e27da931cdadb63.chromatic.com/?path=/story/components-data-entry-selectbox--docs
+ * - FileUploader — https://main--685923032e27da931cdadb63.chromatic.com/?path=/story/components-data-entry-upload-files-file-uploader--docs
+ */
 import { FileUploader, InputField, SelectBox, SettingLayout } from '@marmeto_engineering/anthers-components';
 
 export interface GeneralSettingsValues {

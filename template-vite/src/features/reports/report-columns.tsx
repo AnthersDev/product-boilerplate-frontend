@@ -1,4 +1,10 @@
 import React from 'react';
+/**
+ * Storybook:
+ * - Badge — https://main--685923032e27da931cdadb63.chromatic.com/?path=/story/components-data-display-badge--docs
+ * - Dropdown — https://main--685923032e27da931cdadb63.chromatic.com/?path=/story/components-data-display-dropdown--docs
+ * - AdvancedDataTable (ListPageLayout uses this) — https://main--685923032e27da931cdadb63.chromatic.com/?path=/story/components-data-display-advanced-data-table--docs
+ */
 import { Badge, Dropdown } from '@marmeto_engineering/anthers-components';
 import { Download, EllipsisVertical, Pencil, Share2, Trash2 } from 'lucide-react';
 

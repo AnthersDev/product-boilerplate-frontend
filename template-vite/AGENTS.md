@@ -69,7 +69,8 @@ Private package: `@marmeto_engineering/anthers-components`. Local: `npm login`. 
 | `/select-org` | Org picker |
 | `/` | Home |
 | `/analytics/reports` | Reports listing |
-| `/registration` | Vendor registration demo — Anthers `PageLayout` + `FormPreviewPage`; sample JSON `src/pages/registration/vendor-registration-form.ts` (Company → Brand → Bank → Contact). Chromatic: Form Preview In App Layout / Vendor Registration |
+| `/registration` | Vendor registration demo — Anthers `PageLayout` + `FormPreviewPage`; sample JSON `src/pages/registration/vendor-registration-form.ts` (Company → Brand → Bank → Contact). [Chromatic Vendor Registration](https://main--685923032e27da931cdadb63.chromatic.com/?path=/story/layouts-setting-layouts-registration-form-long-form-with-sections-form-preview-in-app-layout--vendor-registration). All Anthers links: [docs/anthers-storybook.md](./docs/anthers-storybook.md) |
+| `/permissions` (+ `/allowed`, `/access-denied`, `/hidden`) | Nested sidebar demo for `PermissionGuard` + Anthers menu `requiredPermissions` / lock icons. Pages: `src/pages/permissions/*`. Nav: `src/config/navigation.ts` (`subItems`). Pass session perms via `Sidebar userPermissions` in `AppSidebar`. |
 | `/settings` | Hub → general / users / notifications |
 | `/settings/users` | User list (`UserListingLayout`) |
 | `/settings/users/create` | Add user (`UserCreationLayout`) — register **before** `:id` |
@@ -99,7 +100,7 @@ Examples used today: `settings.userAndPermissions.manage`, `settings.notificatio
 | `PermissionGuard` (`src/components/PermissionGuard`) | Hide buttons (`fallback="hidden"`, default) or block pages (`fallback="denied"` → Anthers `AccessDenied`) |
 | `useHasPermission` (`@/features/auth`) | Imperative boolean checks |
 
-Home shows a sample **Manage users** button gated on `settings.userAndPermissions.manage`. Prefer `PermissionGuard` over ad-hoc `session.permissions.includes` in JSX.
+Home shows a sample **Manage users** button gated on `settings.userAndPermissions.manage`. Prefer `PermissionGuard` over ad-hoc `session.permissions.includes` in JSX. For a full walkthrough (nested nav + allow / deny / hidden), use the **Permissions** sidebar group.
 
 ### API clients
 
@@ -230,6 +231,7 @@ Settings, users, and notifications already follow Nexus-style Anthers layouts (`
 - Pass `apiClient={httpClient}` and real `userPermissions` from session.
 - Prefer extending those layouts over rebuilding tables/forms.
 - Keep visual language consistent with existing settings pages (Lucide icons, stroke width, spacing).
+- **Storybook:** Chromatic URLs live as comments above Anthers imports, and in [docs/anthers-storybook.md](./docs/anthers-storybook.md). Base: https://main--685923032e27da931cdadb63.chromatic.com/ — when adding a new Anthers component, add the Storybook comment + docs row.
 
 ---
 
@@ -270,6 +272,8 @@ Record notable capability additions here so future sessions don’t rediscover t
 
 | Date | Change |
 | --- | --- |
+| 2026-11-17 | Nested **Permissions** sidebar demo (`/permissions/*`) for PermissionGuard states + Anthers menu locks |
+| 2026-11-17 | Anthers Storybook: Chromatic URL comments above every Anthers import; index at [docs/anthers-storybook.md](./docs/anthers-storybook.md) |
 | 2026-11-17 | First AI setup creates the app with `npx --yes github:AnthersDev/create-frontend my-app` in the chosen parent folder. A local `create-frontend` checkout is not required. |
 | 2026-11-17 | First AI setup asks where to scaffold before creating the app. Answers are a home-folder chain: `Desktop` or `Desktop -> Frontend`. |
 | 2026-11-17 | Analytics follows signed-in sessions and browser URLs; Intercom loading retries after failures and cancels pending boots on shutdown. Unknown routes select the public or shell 404 by session; registration country choices match available states; settings show filenames from draft values. |

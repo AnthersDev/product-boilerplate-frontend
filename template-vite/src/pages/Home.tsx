@@ -1,5 +1,10 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+/**
+ * Storybook:
+ * - HomePageLayout — https://main--685923032e27da931cdadb63.chromatic.com/?path=/story/layouts-dashboard-layouts-homepagelayout-dynamic-draft--docs
+ * - Button — https://main--685923032e27da931cdadb63.chromatic.com/?path=/story/components-actions-button--docs
+ */
 import { Button, HomePageLayout } from '@marmeto_engineering/anthers-components';
 
 import { StatusScreen } from '@/components/StatusScreen';

@@ -1,3 +1,4 @@
+/** Storybook: NotificationPageLayout — https://main--685923032e27da931cdadb63.chromatic.com/?path=/story/layouts-setting-layouts-notification-page-notification-page-layout--docs */
 import { NotificationPageLayout } from '@marmeto_engineering/anthers-components';
 
 import { useSession } from '@/features/auth';

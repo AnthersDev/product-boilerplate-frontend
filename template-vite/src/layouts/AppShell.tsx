@@ -1,5 +1,6 @@
 import React, { type ReactNode } from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
+/** Storybook: AppLayout — https://main--685923032e27da931cdadb63.chromatic.com/?path=/story/layouts-dashboard-layouts-app-layout--docs */
 import { AppLayout, type AppLayoutProps } from '@marmeto_engineering/anthers-components';
 import { LogOut } from 'lucide-react';
 

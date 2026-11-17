@@ -1,4 +1,5 @@
 import { useParams } from 'react-router-dom';
+/** Storybook: NotificationDetails — https://main--685923032e27da931cdadb63.chromatic.com/?path=/story/layouts-setting-layouts-notification-page-notification-details-layout--docs */
 import { NotificationDetails } from '@marmeto_engineering/anthers-components';
 
 import { httpClient } from '@/services/api';
