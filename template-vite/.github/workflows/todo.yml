@@ -38,7 +38,7 @@ jobs:
         with:
           INSERT_ISSUE_URLS: 'true'
           CLOSE_ISSUES: ${{ github.event.action == 'closed' && github.event.pull_request.merged }}
-          DIFF_URL: https://github.com/${{ github.repository }}/compare/${{ github.event.pull_request.base.sha }}...${{ github.event.pull_request.head.sha }}
+          DIFF_URL: ${{ github.api_url }}/repos/${{ github.repository }}/compare/${{ github.event.pull_request.base.sha }}...${{ github.event.pull_request.head.sha }}
 
       - name: Commit issue links onto the pull request branch
         if: github.event.action != 'closed'
