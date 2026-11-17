@@ -2,7 +2,7 @@
 
 ## Overview
 
-A generated app ships the GitHub Actions workflows, issue templates, and pull request template in this repository. Clone the repo and these files are already there. Nothing else has to be added before CI can run.
+A generated app ships the GitHub Actions workflows, issue templates, and pull request template in this repository. Before running CI, configure the required repository secrets described in [Required repository secrets](#required-repository-secrets).
 
 Dependabot, `CODEOWNERS`, and Super Linter are not part of this template. Do not look for `dependabot.yml`, `CODEOWNERS`, or `super-lint.yml`. Linting in CI is MegaLinter (`.github/workflows/mega-linter.yml`).
 
@@ -32,9 +32,16 @@ Dependabot, `CODEOWNERS`, and Super Linter are not part of this template. Do not
 | `type-check.yml` | Push to `main`, and non-draft pull requests to `main` | Installs dependencies, then `npm run type-check`. |
 | `tests.yml` | Push to `main`, and non-draft pull requests to `main` | Installs dependencies, then `npm run test` if the script exists. |
 | `pr-review.yml` | Non-draft pull requests to `main` | Danger JS. Fails the check when the description is missing the PR template sections. Warns on an unchecked checklist and on diffs over 200 lines. |
-| `todo.yml` | Pull requests to `main` from this repository | Opens or closes issues from `TODO` comments in the pull request's latest commit. Commits inserted issue links onto the pull request branch. Does not push to `main`. |
+| `todo.yml` | Pull requests to `main` from this repository | Opens or closes issues from `TODO` comments in the pull request's full diff. Commits inserted issue links onto the pull request branch. Does not push to `main`. |
 
-`type-check.yml`, `tests.yml`, and `pr-review.yml` install `@marmeto_engineering/anthers-components`. Add a repository secret named `NPM_TOKEN_READ_ONLY` (a read-only npm token). The install step reads it as `NODE_AUTH_TOKEN`. Without that secret those jobs fail at install. `pr-review.yml` also expects a `DANGER_GITHUB_API_TOKEN` secret.
+### Required repository secrets
+
+In the repository, open **Settings → Secrets and variables → Actions → New repository secret** and add these secrets before running CI:
+
+- `NPM_TOKEN_READ_ONLY`: a read-only npm token used by `type-check.yml`, `tests.yml`, and `pr-review.yml` to install `@marmeto_engineering/anthers-components`.
+- `DANGER_GITHUB_API_TOKEN`: a token used by `pr-review.yml` to access the GitHub API.
+
+Without these secrets, the affected workflows fail during dependency installation or API access.
 
 Draft pull requests skip MegaLinter, typecheck, tests, and Danger.
 
@@ -79,6 +86,8 @@ These are repository settings, not files in the template. On `main`, consider re
 - The MegaLinter, typecheck, tests, and Danger checks
 - Branches to be up to date before merge
 
+The tests check uses `npm run test --if-present`, so it can pass without running tests when no `test` script is defined. Add a test script before relying on this check for branch protection.
+
 ### Dependency updates
 
 Nothing in this repo opens dependency update pull requests. Update npm packages and GitHub Actions on purpose, then run `npm run lint`, `npm run type-check`, and `npm run build`. Add [Dependabot](https://docs.github.com/en/code-security/dependabot) yourself if you want that automation. It is not configured here.
@@ -103,7 +112,7 @@ The body must include `## Description`, `## Type of Change`, `## How Has This Be
 
 ### Todo checker
 
-`todo.yml` runs on the pull request branch. New `TODO` comments in the latest commit become issues, and the workflow pushes a `chore: add GitHub issue links to TODOs` commit back onto that same branch. `main` changes only when the pull request is merged. Fork pull requests are skipped, because the workflow cannot push to them. Pull the branch again if that commit landed while you were still editing it.
+`todo.yml` processes the pull request's full diff, so TODO comments from earlier commits can affect issues. New TODO comments become issues, and the workflow pushes a `chore: add GitHub issue links to TODOs` commit back onto that same branch. Linked issues close only after the pull request is merged into `main`. Fork pull requests are skipped, because the workflow cannot push to them. Pull the branch again if that commit landed while you were still editing it.
 
 ## Resources
 

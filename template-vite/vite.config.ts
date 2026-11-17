@@ -27,7 +27,10 @@ const translationFlushBypass = `if (!isGTranslateActive() && !isGTranslateDomTra
  * Dev uses the esbuild prebundle; production uses the transform below.
  */
 const patchTranslationFlush = (code: string) => {
-  if (!code.includes(translationFlushMarker) || code.includes('!isGTranslateActive() && !isGTranslateDomTranslated()')) {
+  if (
+    !code.includes(translationFlushMarker) ||
+    code.includes('!isGTranslateActive() && !isGTranslateDomTranslated()')
+  ) {
     return code;
   }
   return code.replace(translationFlushMarker, `${translationFlushMarker}\n  ${translationFlushBypass}`);

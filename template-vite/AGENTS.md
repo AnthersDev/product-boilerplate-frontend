@@ -133,7 +133,7 @@ Run `npm run build` before claiming production-ready, or when touching Vite/conf
 3. Add page(s) under `src/pages/...`.
 4. Register route(s) in `src/routes/AppRoutes.tsx` inside the correct `RequireSession` / `requireOrganization` tree.
 5. Add nav in `src/config/navigation.ts` if it belongs in the sidebar.
-6. In `src/services/mocks/handlers.ts`, import your renamed mock routes instead of `exampleMockRoutes`.
+6. Update `src/services/mocks/handlers.ts`: replace `exampleMockRoutes` with the new feature routes only while the scaffold's `exampleMockRoutes` is still present. Otherwise, add the new routes while preserving routes for existing features. Update the feature's README with its routes and setup.
 7. Wire permissions if the UI is gated (session permissions + mock user/auth).
 8. Update **this file** (Current map + Changelog) and [README.md](./README.md) routes/API tables when the contract is user-facing.
 

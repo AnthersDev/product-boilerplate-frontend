@@ -1,9 +1,10 @@
 name: Todo Checker
 
 # Runs on the developer's pull request branch. It never pushes to main.
-# Issue-link edits are committed on that branch and reach main when the pull request is merged.
+# Issue-link edits are committed on that branch; issue closure waits for the merged closed event.
 on:
   pull_request:
+    types: [opened, synchronize, reopened, closed]
     branches:
       - main
 
@@ -18,7 +19,9 @@ concurrency:
 
 jobs:
   todo:
-    if: github.event.pull_request.head.repo.full_name == github.repository
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      (github.event.action != 'closed' || github.event.pull_request.merged)
 
     runs-on: ubuntu-latest
 
@@ -26,7 +29,7 @@ jobs:
       - name: Checkout pull request branch
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.ref }}
+          ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 2
 
       - name: TODO to Issue
@@ -34,9 +37,11 @@ jobs:
         id: todo
         with:
           INSERT_ISSUE_URLS: 'true'
-          CLOSE_ISSUES: 'true'
+          CLOSE_ISSUES: ${{ github.event.action == 'closed' && github.event.pull_request.merged }}
+          DIFF_URL: https://github.com/${{ github.repository }}/compare/${{ github.event.pull_request.base.sha }}...${{ github.event.pull_request.head.sha }}
 
       - name: Commit issue links onto the pull request branch
+        if: github.event.action != 'closed'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
