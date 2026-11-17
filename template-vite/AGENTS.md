@@ -146,13 +146,24 @@ Run `npm run build` before claiming production-ready, or when touching Vite/conf
 
 ---
 
-## Recipe: first AI setup — ask for product name
+## Recipe: first AI setup — ask where to scaffold, then the product name
 
-**When:** A human opens a newly scaffolded app (or this template) with an AI agent and asks to set up / brand / get started.  
-**When not:** Manual `create-frontend` / `npx` CLI use — the CLI does not ask for a display name; humans edit branding themselves. Do not invent a product name without asking.
+**When:** A human asks an AI agent to scaffold, set up, or brand an app, including when they attach this file before the app exists or open a newly scaffolded app.  
+**When not:** Manual `create-frontend` / `npx` CLI use — the CLI creates the project in the current directory and does not ask for a display name. Humans edit branding themselves. Do not invent a scaffold folder or a product name without asking.
 
-1. **Ask once:** “What is the product display name?” (e.g. `Acme Retail`). Wait for the answer.
-2. **Fill it everywhere** (keep values identical):
+1. **Ask once where to scaffold** when the app does not exist yet: “Where should I scaffold the app?” Wait for the answer. Do not default to the current directory, the CLI repo, or a folder beside the CLI.
+
+   The answer is a folder chain from the user’s home directory. `->` separates folders. Spaces around `->` do not matter.
+
+   | They say | Scaffold in |
+   | --- | --- |
+   | `Desktop` | `~/Desktop/<project-name>` |
+   | `Desktop -> Frontend` | `~/Desktop/Frontend/<project-name>` |
+
+   Create any missing parent folders, then run `create-frontend` with that directory as the working directory. If the app is already scaffolded and they only asked to brand or change it, skip this question and do not move the project.
+
+2. **Ask once:** “What is the product display name?” (e.g. `Acme Retail`). Wait for the answer.
+3. **Fill it everywhere** (keep values identical):
 
 | File | What to set |
 | --- | --- |
@@ -160,10 +171,10 @@ Run `npm run build` before claiming production-ready, or when touching Vite/conf
 | `index.html` | `<title>` |
 | `vite.config.ts` | `appName` (PWA `name` / `short_name` / `description`) |
 
-3. If they also give a backend/app slug, set `VITE_APP_NAME` in `.env.local` (and document in `.env.example` only if the default should change for the team). That slug is for CSRF + refresh lock — not the marketing title.
-4. Optionally align copy defaults that still say “Your organization” / “Your App” (e.g. settings `workspaceName`, notification `senderName`) when those are clearly product-facing placeholders.
-5. Do **not** rewrite README/AGENTS just to insert the product name unless the human asked for doc updates.
-6. Then continue with install / `npm run dev` / mock sign-in as requested.
+4. If they also give a backend/app slug, set `VITE_APP_NAME` in `.env.local` (and document in `.env.example` only if the default should change for the team). That slug is for CSRF + refresh lock — not the marketing title.
+5. Optionally align copy defaults that still say “Your organization” / “Your App” (e.g. settings `workspaceName`, notification `senderName`) when those are clearly product-facing placeholders.
+6. Do **not** rewrite README/AGENTS just to insert the product name unless the human asked for doc updates.
+7. Then continue with install / `npm run dev` / mock sign-in as requested.
 
 Humans adding pages without AI: see [README.md — How to add a new page](./README.md#how-to-add-a-new-page-manual-no-ai).
 
@@ -229,7 +240,7 @@ Working in the **boilerplate repo** (not a single product):
 
 ## Ask vs refuse
 
-**Ask the human** when: first AI setup needs the **product display name**; target domain unclear; two patterns conflict; new dependency needed; auth/security behavior would change; or a large redesign is implied.
+**Ask the human** when: first AI setup needs the **scaffold location** or the **product display name**; target domain unclear; two patterns conflict; new dependency needed; auth/security behavior would change; or a large redesign is implied.
 
 **Refuse / push back** when asked to: bypass lint/type-check, drop TypeScript safety, store secrets in the client, duplicate an existing Anthers/feature solution, or commit credentials.
 
@@ -253,6 +264,7 @@ Record notable capability additions here so future sessions don’t rediscover t
 
 | Date | Change |
 | --- | --- |
+| 2026-11-17 | First AI setup asks where to scaffold before creating the app. Answers are a home-folder chain: `Desktop` or `Desktop -> Frontend`. |
 | 2026-11-17 | Analytics follows signed-in sessions and browser URLs; Intercom loading retries after failures and cancels pending boots on shutdown. Unknown routes select the public or shell 404 by session; registration country choices match available states; settings show filenames from draft values. |
 | 2026-11-17 | Registration `/registration`: `FormPreviewPage` + vendor sample JSON (Company/Brand/Bank/Contact); docs + FormPreview recipe. `PermissionGuard`; user management; 404; PostHog/Intercom; AI product-name setup |
 | 2026-11-16 | `_feature-template_` sample is `GET /examples`: `httpClient`, React Query, and `exampleMockRoutes` registered in `handlers.ts` |

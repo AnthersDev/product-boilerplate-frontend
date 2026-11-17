@@ -357,11 +357,13 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md) for branching, commits, and PR checklis
 
 Hand agents [AGENTS.md](./AGENTS.md) (attach / `@AGENTS.md` in Cursor). It is the living playbook for stack, folder rules, current routes/features, and how to add more. **Update AGENTS.md in the same PR** when you add features, routes, mocks, or env contracts.
 
-#### Product name on AI-assisted setup (agents only)
+#### Scaffold location and product name on AI-assisted setup (agents only)
 
-When a developer uses an AI agent to set up or brand a newly scaffolded repo, the agent **must ask once for the product display name** and fill it in everywhere listed under [Branding](#branding) (`brand.name`, `index.html` title, `vite.config.ts` `appName`). Optionally set a slug for `VITE_APP_NAME` in `.env.local` if the human provides one.
+When a developer uses an AI agent to create the app, the agent **must ask once where to scaffold it** before running `create-frontend`. The answer is a folder chain from the home directory, with `->` between folders: `Desktop` (`~/Desktop/<project-name>`) or `Desktop -> Frontend` (`~/Desktop/Frontend/<project-name>`). The agent does not pick a directory on its own. Skip this question when the app already exists.
 
-This does **not** apply to the manual `create-frontend` / `npx` path: the CLI only sets the folder / `package.json` name. Humans branding by hand edit those files themselves (see Branding above).
+The agent **must also ask once for the product display name** and fill it in everywhere listed under [Branding](#branding) (`brand.name`, `index.html` title, `vite.config.ts` `appName`). Optionally set a slug for `VITE_APP_NAME` in `.env.local` if the human provides one.
+
+This does **not** apply to the manual `create-frontend` / `npx` path: the CLI creates the project in the current directory and only sets the folder / `package.json` name. Humans branding by hand edit those files themselves (see Branding above).
 
 ---
 
