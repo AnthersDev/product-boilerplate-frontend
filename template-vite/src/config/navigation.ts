@@ -1,5 +1,5 @@
 import { createElement, type ReactElement } from 'react';
-import { FileText, Gift, Home as HomeIcon, LifeBuoy, Settings } from 'lucide-react';
+import { ClipboardList, FileText, Gift, Home as HomeIcon, LifeBuoy, Settings } from 'lucide-react';
 
 export interface NavItemProps {
   id: string;
@@ -30,6 +30,12 @@ export const mainNavItems: NavItemProps[] = [
     href: '/analytics/reports',
     matchPath: '/analytics',
     icon: icon(FileText),
+  },
+  {
+    id: 'registration',
+    label: 'Registration',
+    href: '/registration',
+    icon: icon(ClipboardList),
   },
   {
     id: 'settings',

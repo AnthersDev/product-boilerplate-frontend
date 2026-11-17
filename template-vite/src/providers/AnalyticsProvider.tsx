@@ -1,0 +1,44 @@
+import { useEffect, type PropsWithChildren } from 'react';
+import { useLocation } from 'react-router-dom';
+
+import { useSession } from '@/features/auth';
+import {
+  bootIntercom,
+  capturePostHogPageview,
+  ensurePostHog,
+  identifyPostHogUser,
+  isIntercomEnabled,
+  isPostHogEnabled,
+  shutdownIntercom,
+} from '@/libs/analytics';
+
+/**
+ * Boots PostHog / Intercom only when their env keys are set (Ping / Nexus pattern).
+ * Without keys, this provider is a no-op.
+ */
+export const AnalyticsProvider = ({ children }: PropsWithChildren) => {
+  const location = useLocation();
+  const { data: session } = useSession();
+
+  useEffect(() => {
+    if (isPostHogEnabled()) ensurePostHog();
+  }, []);
+
+  useEffect(() => {
+    if (!isPostHogEnabled()) return;
+    capturePostHogPageview(location.pathname, location.search);
+  }, [location.pathname, location.search]);
+
+  useEffect(() => {
+    const user = session?.user;
+    if (!user) {
+      if (isIntercomEnabled()) shutdownIntercom();
+      return;
+    }
+
+    if (isPostHogEnabled()) identifyPostHogUser(user);
+    if (isIntercomEnabled()) void bootIntercom(user);
+  }, [session?.user]);
+
+  return children;
+};

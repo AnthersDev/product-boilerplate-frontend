@@ -16,4 +16,10 @@ export const env = {
    * and the cross-tab refresh lock name.
    */
   appName: import.meta.env.VITE_APP_NAME?.trim() || 'app',
+  /** PostHog project token. When set, analytics boots automatically (Ping / Nexus pattern). */
+  posthogProjectToken: import.meta.env.VITE_PUBLIC_POSTHOG_PROJECT_TOKEN?.trim() || undefined,
+  posthogHost: import.meta.env.VITE_PUBLIC_POSTHOG_HOST?.trim() || 'https://us.i.posthog.com',
+  /** Intercom app id. When set, the messenger boots for signed-in users. */
+  intercomAppId: import.meta.env.VITE_INTERCOM_APP_ID?.trim() || undefined,
+  intercomApiBase: import.meta.env.VITE_INTERCOM_API_BASE?.trim() || 'https://api-iam.intercom.io',
 } as const;

@@ -1,4 +1,5 @@
-import { UserListingLayout, show } from '@marmeto_engineering/anthers-components';
+import { useNavigate } from 'react-router-dom';
+import { UserListingLayout } from '@marmeto_engineering/anthers-components';
 
 import { useSession } from '@/features/auth';
 import { httpClient } from '@/services/api';
@@ -8,6 +9,7 @@ import { httpClient } from '@/services/api';
  * Matches Nexus: Anthers `UserListingLayout` over `GET /user`.
  */
 const UsersList = () => {
+  const navigate = useNavigate();
   const { data: session } = useSession();
 
   if (!session?.user.id || !session.user.email) {
@@ -27,7 +29,7 @@ const UsersList = () => {
       }}
       userPermissions={session.permissions}
       onAddUserClick={() => {
-        show('Add user is a demo stub in the starter. Wire UserCreationLayout when the invite API is ready.');
+        navigate('/settings/users/create');
       }}
     />
   );

@@ -69,17 +69,37 @@ Private package: `@marmeto_engineering/anthers-components`. Local: `npm login`. 
 | `/select-org` | Org picker |
 | `/` | Home |
 | `/analytics/reports` | Reports listing |
+| `/registration` | Vendor registration demo — Anthers `PageLayout` + `FormPreviewPage`; sample JSON `src/pages/registration/vendor-registration-form.ts` (Company → Brand → Bank → Contact). Chromatic: Form Preview In App Layout / Vendor Registration |
 | `/settings` | Hub → general / users / notifications |
-| `/settings/users`, `/settings/users/:id` | User management (Anthers layouts) |
+| `/settings/users` | User list (`UserListingLayout`) |
+| `/settings/users/create` | Add user (`UserCreationLayout`) — register **before** `:id` |
+| `/settings/users/:id` | User details (`UserDetailsLayout`) |
 | `/settings/notifications`, `/settings/notifications/:id` | Notifications list + template editor |
 | `/whats-new` | Placeholder |
 | `/auth/mock-callback` | Mock magic-link only |
+| `*` | **Page not found** (`src/pages/NotFound.tsx`) — never redirect unknown paths to Home |
 
 Sidebar: `src/config/navigation.ts`. Branding: `src/config/brand.ts`. Shell: `src/layouts/AppShell.tsx`.
+
+### Analytics (optional)
+
+| Tool | Env key | Code |
+| --- | --- | --- |
+| PostHog | `VITE_PUBLIC_POSTHOG_PROJECT_TOKEN` (+ optional `VITE_PUBLIC_POSTHOG_HOST`) | `src/libs/analytics/posthog.ts` |
+| Intercom | `VITE_INTERCOM_APP_ID` (+ optional `VITE_INTERCOM_API_BASE`) | `src/libs/analytics/intercom.ts` |
+
+Wired by `AnalyticsProvider`. **No key → no-op** (Ping / Nexus pattern). Do not hard-require these packages at runtime when keys are missing.
 
 ### Permissions (mocks / gates)
 
 Examples used today: `settings.userAndPermissions.manage`, `settings.notifications.manage`. Extend mock auth/user handlers when adding gated UI.
+
+| Helper | Use for |
+| --- | --- |
+| `PermissionGuard` (`src/components/PermissionGuard`) | Hide buttons (`fallback="hidden"`, default) or block pages (`fallback="denied"` → Anthers `AccessDenied`) |
+| `useHasPermission` (`@/features/auth`) | Imperative boolean checks |
+
+Home shows a sample **Manage users** button gated on `settings.userAndPermissions.manage`. Prefer `PermissionGuard` over ad-hoc `session.permissions.includes` in JSX.
 
 ### API clients
 
@@ -93,7 +113,7 @@ Examples used today: `settings.userAndPermissions.manage`, `settings.notificatio
 | --- | --- |
 | `auth-handlers.ts` | SSO, session, refresh, orgs, logout, mock verify/expire |
 | `home-handlers.ts` | `GET /home` |
-| `user-handlers.ts` | `GET /user` |
+| `user-handlers.ts` | `GET /user`, `GET /user/permission`, `POST /user`, `GET`/`PUT /user/:id/permission`, `DELETE /user/:id` |
 | `notification-handlers.ts` | `/notification/`, `/notification-setting`, detail/toggle/preview/test |
 | `reports-handlers.ts` | Reports + saved filter views |
 | `handlers.ts` | Registers all mock route arrays |
@@ -123,6 +143,53 @@ npm run lint
 ```
 
 Run `npm run build` before claiming production-ready, or when touching Vite/config/auth/bootstrap.
+
+---
+
+## Recipe: first AI setup — ask for product name
+
+**When:** A human opens a newly scaffolded app (or this template) with an AI agent and asks to set up / brand / get started.  
+**When not:** Manual `create-frontend` / `npx` CLI use — the CLI does not ask for a display name; humans edit branding themselves. Do not invent a product name without asking.
+
+1. **Ask once:** “What is the product display name?” (e.g. `Acme Retail`). Wait for the answer.
+2. **Fill it everywhere** (keep values identical):
+
+| File | What to set |
+| --- | --- |
+| `src/config/brand.ts` | `brand.name` |
+| `index.html` | `<title>` |
+| `vite.config.ts` | `appName` (PWA `name` / `short_name` / `description`) |
+
+3. If they also give a backend/app slug, set `VITE_APP_NAME` in `.env.local` (and document in `.env.example` only if the default should change for the team). That slug is for CSRF + refresh lock — not the marketing title.
+4. Optionally align copy defaults that still say “Your organization” / “Your App” (e.g. settings `workspaceName`, notification `senderName`) when those are clearly product-facing placeholders.
+5. Do **not** rewrite README/AGENTS just to insert the product name unless the human asked for doc updates.
+6. Then continue with install / `npm run dev` / mock sign-in as requested.
+
+Humans adding pages without AI: see [README.md — How to add a new page](./README.md#how-to-add-a-new-page-manual-no-ai).
+
+---
+
+## Recipe: add a page (agent)
+
+Same three touchpoints as the human guide:
+
+1. `src/pages/<Name>.tsx` — prefer Anthers `PageLayout`.
+2. Lazy import + `<Route>` under `RequireSession requireOrganization` → `AppShell` in `src/routes/AppRoutes.tsx`.
+3. `mainNavItems` entry in `src/config/navigation.ts` (Lucide icon, `strokeWidth` 1.75).
+
+Do not edit README/AGENTS unless the human asked or the route is a lasting product surface you were told to document.
+
+---
+
+## Recipe: multi-section registration / FormPreviewPage
+
+Reference implementation: `src/pages/registration/`.
+
+1. Keep form JSON next to the page (or load from API). Field `type` must use Anthers JSON shape `{ value, label }` (`short_answer`, `paragraph`, `email`, `phone`, `url`, `dropdown`, `file_upload`, `single_checkbox`, etc.).
+2. Render with `FormPreviewPage` inside `PageLayout` (optional `responsive={false}` like Nexus previews).
+3. `onSubmit` receives transformed form data; Global Save is already provided by `AppLayout`.
+4. Prefer Anthers layouts over rebuilding steppers/fields by hand.
+5. `npm run clean:demo` clears `vendor-registration-form.ts` to `{ sections: [] }` — restore or replace that JSON when shipping a real form.
 
 ---
 
@@ -162,7 +229,7 @@ Working in the **boilerplate repo** (not a single product):
 
 ## Ask vs refuse
 
-**Ask the human** when: target domain unclear, two patterns conflict, new dependency needed, auth/security behavior would change, or a large redesign is implied.
+**Ask the human** when: first AI setup needs the **product display name**; target domain unclear; two patterns conflict; new dependency needed; auth/security behavior would change; or a large redesign is implied.
 
 **Refuse / push back** when asked to: bypass lint/type-check, drop TypeScript safety, store secrets in the client, duplicate an existing Anthers/feature solution, or commit credentials.
 
@@ -186,6 +253,7 @@ Record notable capability additions here so future sessions don’t rediscover t
 
 | Date | Change |
 | --- | --- |
+| 2026-11-17 | Registration `/registration`: `FormPreviewPage` + vendor sample JSON (Company/Brand/Bank/Contact); docs + FormPreview recipe. `PermissionGuard`; user management; 404; PostHog/Intercom; AI product-name setup |
 | 2026-11-16 | `_feature-template_` sample is `GET /examples`: `httpClient`, React Query, and `exampleMockRoutes` registered in `handlers.ts` |
 | 2026-11-13 | Auth: dual clients + CSRF + refresh lock; settings hub; users + notifications (Anthers); reports `AdvancedDataTable`; mocks for auth/home/user/notification/reports; Node 24 |
 | — | _Add a row whenever you land a feature agents should know about._ |
