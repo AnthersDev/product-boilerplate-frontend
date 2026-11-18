@@ -134,7 +134,12 @@ const stripAnthersStorybookDemo = (source, relativePath) => {
     const endAfterMarker = end + STORYBOOK_DEMO_END.length;
     const endLineBreak = result.indexOf('\n', endAfterMarker);
     const endLine = result.slice(endAfterMarker, endLineBreak === -1 ? result.length : endLineBreak);
-    const removeEnd = endLine.trim() === '' ? (endLineBreak === -1 ? result.length : endLineBreak + 1) : endAfterMarker;
+    let removeEnd = endLine.trim() === '' ? (endLineBreak === -1 ? result.length : endLineBreak + 1) : endAfterMarker;
+    const followingLineBreak = result.indexOf('\n', removeEnd);
+    const followingLineEnd = followingLineBreak === -1 ? result.length : followingLineBreak;
+    if (result.slice(removeEnd, followingLineEnd).trim() === '') {
+      removeEnd = followingLineBreak === -1 ? result.length : followingLineBreak + 1;
+    }
 
     result = `${result.slice(0, removeStart)}${result.slice(removeEnd)}`;
     removedDemoBlock = true;
@@ -425,12 +430,7 @@ update(homeContentPath, (source) => {
         description={data.description}
       />
     );`,
-    `    return (
-      <StatusScreen
-        title="Nothing on your home page yet"
-        description={data.description}
-      />
-    );`,
+    '    return <StatusScreen title="Nothing on your home page yet" description={data.description} />;',
     homeContentPath,
     'export const HomePageSections',
   );
@@ -439,6 +439,7 @@ update(homeContentPath, (source) => {
   result = result.replace(/^[ \t]*import \{ env \} from '@\/libs\/env';\r?\n/m, '');
   result = result.replace(/^[ \t]*import \{ useNavigate \} from 'react-router-dom';\r?\n/m, '');
   result = result.replace(/^[ \t]*const navigate = useNavigate\(\);\r?\n/m, '');
+  result = result.replace(/(<>\r?\n)[ \t]*\r?\n([ \t]*\{hasInsights && \()/, '$1$2');
   return result;
 });
 
