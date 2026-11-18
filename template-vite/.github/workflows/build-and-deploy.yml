@@ -18,10 +18,15 @@ on:
 concurrency:
   group: deploy-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: false
+  queue: max
+
+permissions:
+  actions: read
+  contents: read
 
 jobs:
   build-and-deploy:
-    if: github.ref_name == 'main' || github.ref_name == 'staging'
+    if: startsWith(github.ref, 'refs/heads/') && (github.ref_name == 'main' || github.ref_name == 'staging')
     runs-on: ubuntu-latest
     timeout-minutes: 30
     environment: ${{ github.ref_name == 'main' && 'production' || 'staging' }}
@@ -38,6 +43,12 @@ jobs:
             echo "enabled=false" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Record requested deployment SHA
+        id: requested
+        env:
+          ROLLBACK_REF: ${{ inputs.rollback_ref }}
+        run: echo "sha=${ROLLBACK_REF:-$GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+
       - name: Validate rollback reference
         if: ${{ inputs.rollback_ref != '' }}
         env:
@@ -48,10 +59,42 @@ jobs:
             exit 1
           fi
 
+      - name: Approve rollback target
+        if: ${{ inputs.rollback_ref != '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ROLLBACK_REF: ${{ inputs.rollback_ref }}
+        run: |
+          normalized_rollback_ref="${ROLLBACK_REF,,}"
+          workflow_runs="$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/build-and-deploy.yml/runs?head_sha=${normalized_rollback_ref}&branch=${GITHUB_REF_NAME}&status=completed&per_page=100")"
+          run_ids="$(jq -r --arg sha "$normalized_rollback_ref" --arg branch "$GITHUB_REF_NAME" \
+            '.workflow_runs[] | select(.head_sha == $sha and .head_branch == $branch and .conclusion == "success") | .id' \
+            <<< "$workflow_runs")"
+          approved=false
+          while IFS= read -r run_id; do
+            [ -n "$run_id" ] || continue
+            run_jobs="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${run_id}/jobs?per_page=100")"
+            if jq -e \
+              '.jobs | any(.[]; .conclusion == "success" and any(.steps[]; .name == "Invalidate CloudFront and wait for completion" and .conclusion == "success"))' \
+              <<< "$run_jobs" > /dev/null; then
+              approved=true
+              break
+            fi
+          done <<< "$run_ids"
+          if [ "$approved" != true ]; then
+            echo "Rollback target must have completed a successful deployment on the selected branch ($GITHUB_REF_NAME)." >&2
+            exit 1
+          fi
+          echo "Rollback target $ROLLBACK_REF was previously deployed successfully to the $GITHUB_REF_NAME environment."
+
       - name: Checkout code
         uses: actions/checkout@v4
         with:
           ref: ${{ inputs.rollback_ref || github.sha }}
+
+      - name: Record checked-out commit SHA
+        id: checked-out
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Verify deployment commit is current branch head
         id: head
@@ -64,10 +107,11 @@ jobs:
             exit 0
           fi
 
-          if ! branch_head="$(git ls-remote --exit-code origin "refs/heads/${GITHUB_REF_NAME}" | cut -f1)"; then
+          if ! remote_ref="$(git ls-remote --exit-code origin "refs/heads/${GITHUB_REF_NAME}")"; then
             echo "Could not verify the current $GITHUB_REF_NAME branch head." >&2
             exit 1
           fi
+          branch_head="${remote_ref%%$'\t'*}"
           if [ "$branch_head" = "$GITHUB_SHA" ]; then
             echo "is_current=true" >> "$GITHUB_OUTPUT"
           else
@@ -136,9 +180,40 @@ jobs:
           VITE_USE_MOCK_API: 'false'
         run: npm run build
 
+      - name: Validate rollback service worker
+        if: ${{ inputs.rollback_ref != '' && steps.head.outputs.is_current == 'true' }}
+        run: |
+          if [ ! -f dist/sw.js ]; then
+            echo "Rollback builds must include dist/sw.js before publication." >&2
+            exit 1
+          fi
+
+      - name: Recheck branch head before publication
+        id: publication
+        if: ${{ steps.head.outputs.is_current == 'true' }}
+        env:
+          ROLLBACK_REF: ${{ inputs.rollback_ref }}
+        run: |
+          if [ -n "$ROLLBACK_REF" ]; then
+            echo "is_current=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if ! remote_ref="$(git ls-remote --exit-code origin "refs/heads/${GITHUB_REF_NAME}")"; then
+            echo "Could not verify the current $GITHUB_REF_NAME branch head before publication." >&2
+            exit 1
+          fi
+          branch_head="${remote_ref%%$'\t'*}"
+          if [ "$branch_head" = "$(git rev-parse HEAD)" ]; then
+            echo "is_current=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "is_current=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Skipping publication for stale commit $(git rev-parse HEAD); $GITHUB_REF_NAME now points to $branch_head."
+          fi
+
       # Hashed Vite output lives in dist/assets. Content hashes → cache for 1 year.
       - name: Deploy hashed static assets to S3
-        if: ${{ steps.head.outputs.is_current == 'true' }}
+        if: ${{ steps.publication.outputs.is_current == 'true' }}
         uses: jakejarvis/s3-sync-action@master
         with:
           # No spaces/quotes: s3-sync-action passes args as Docker CMD.
@@ -153,7 +228,7 @@ jobs:
 
       # index.html and other unhashed files must revalidate so deploys go live.
       - name: Deploy non-worker root files to S3
-        if: ${{ steps.head.outputs.is_current == 'true' }}
+        if: ${{ steps.publication.outputs.is_current == 'true' }}
         uses: jakejarvis/s3-sync-action@master
         with:
           args: --exclude=assets/* --exclude=assets/*/* --exclude=sw.js --exclude=workbox-*.js --cache-control no-cache
@@ -165,7 +240,7 @@ jobs:
           SOURCE_DIR: dist
 
       - name: Invalidate non-worker root files and wait for completion
-        if: ${{ steps.head.outputs.is_current == 'true' }}
+        if: ${{ steps.publication.outputs.is_current == 'true' }}
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -186,11 +261,23 @@ jobs:
             --distribution-id "$CLOUDFRONT_DISTRIBUTION_ID" \
             --id "$invalidation_id"
 
-      - name: Deploy service worker and Workbox imports to S3
-        if: ${{ steps.head.outputs.is_current == 'true' }}
+      - name: Deploy Workbox imports to S3
+        if: ${{ steps.publication.outputs.is_current == 'true' }}
         uses: jakejarvis/s3-sync-action@master
         with:
-          args: --exclude=* --include=sw.js --include=workbox-*.js --cache-control no-cache
+          args: --exclude=* --include=workbox-*.js --cache-control no-cache
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ vars.AWS_REGION }}
+          AWS_S3_BUCKET: ${{ vars.AWS_S3_BUCKET }}
+          SOURCE_DIR: dist
+
+      - name: Deploy service worker to S3
+        if: ${{ steps.publication.outputs.is_current == 'true' }}
+        uses: jakejarvis/s3-sync-action@master
+        with:
+          args: --exclude=* --include=sw.js --cache-control no-cache
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -199,7 +286,7 @@ jobs:
           SOURCE_DIR: dist
 
       - name: Invalidate CloudFront and wait for completion
-        if: ${{ steps.head.outputs.is_current == 'true' }}
+        if: ${{ steps.publication.outputs.is_current == 'true' }}
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -216,7 +303,7 @@ jobs:
             --id "$invalidation_id"
 
       - name: Notify Slack on Success
-        if: ${{ success() && steps.head.outputs.is_current == 'true' && steps.slack.outputs.enabled == 'true' }}
+        if: ${{ success() && steps.publication.outputs.is_current == 'true' && steps.slack.outputs.enabled == 'true' }}
         continue-on-error: true
         uses: 8398a7/action-slack@v3
         with:
@@ -226,7 +313,8 @@ jobs:
             You can access it here: ${{ vars.PRODUCT_FRONTEND_URL }}
             Branch: ${{ github.ref_name }}
             Author: ${{ github.actor }}
-            Commit Message: ${{ github.event.head_commit.message }}
+            Requested SHA: ${{ steps.requested.outputs.sha }}
+            Checked-out SHA: ${{ steps.checked-out.outputs.sha || 'checkout unavailable' }}
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
 
@@ -240,7 +328,8 @@ jobs:
 
             Repository: ${{ github.repository }}
             Branch: ${{ github.ref_name }}
-            Commit: ${{ github.sha }}
+            Requested SHA: ${{ steps.requested.outputs.sha }}
+            Checked-out SHA: ${{ steps.checked-out.outputs.sha || 'checkout unavailable' }}
             Author: ${{ github.actor }}
 
             **Workflow URL:** ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}

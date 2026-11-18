@@ -100,9 +100,9 @@ const replaceToEnd = (source, startMarker, replacement, relativePath, alreadyCle
 /** Collect transforms per path so overlapping clean steps (e.g. Home + Storybook) compose. */
 const transformPipeline = new Map();
 
-const update = (relativePath, transform) => {
+const update = (relativePath, transform, { optional = false } = {}) => {
   const transforms = transformPipeline.get(relativePath) ?? [];
-  transforms.push(transform);
+  transforms.push({ transform, optional });
   transformPipeline.set(relativePath, transforms);
 };
 
@@ -378,8 +378,21 @@ update(readmePath, (source) => {
 
   const storybookCleanupInstruction =
     'When adding an Anthers Storybook demo bar to a page, register that page in `storybookUsagePaths` in `scripts/clean-demo-data.mjs`; the `@clean-demo` markers alone do not register a page for cleanup.';
-  if (result.includes(storybookCleanupInstruction)) {
-    result = replaceOnce(result, `${storybookCleanupInstruction}\n\n`, '', readmePath, 'npm run clean:demo');
+  const storybookInstructionIndex = result.indexOf(storybookCleanupInstruction);
+  if (storybookInstructionIndex !== -1) {
+    if (
+      result.indexOf(storybookCleanupInstruction, storybookInstructionIndex + storybookCleanupInstruction.length) !== -1
+    ) {
+      throw new Error(`Found multiple Storybook cleanup instructions in ${readmePath}. No files were changed.`);
+    }
+    const instructionEnd = storybookInstructionIndex + storybookCleanupInstruction.length;
+    const paragraphBreak = /^(?:\r?\n){2}/.exec(result.slice(instructionEnd))?.[0];
+    if (!paragraphBreak) {
+      throw new Error(
+        `Could not find the end of the Storybook cleanup instruction in ${readmePath}. No files were changed.`,
+      );
+    }
+    result = `${result.slice(0, storybookInstructionIndex)}${result.slice(instructionEnd + paragraphBreak.length)}`;
   }
 
   const cleanDemoScripts =
@@ -398,7 +411,7 @@ update(readmePath, (source) => {
 });
 
 storybookUsagePaths.forEach((relativePath) => {
-  update(relativePath, (source) => stripAnthersStorybookDemo(source, relativePath));
+  update(relativePath, (source) => stripAnthersStorybookDemo(source, relativePath), { optional: true });
 });
 
 const storybookDemoAbs = path.join(root, storybookDemoDir);
@@ -406,13 +419,23 @@ const willRemoveStorybookDemo = existsSync(storybookDemoAbs);
 
 const changed = [...transformPipeline.entries()]
   .map(([relativePath, transforms]) => {
-    let content = read(relativePath);
-    for (const transform of transforms) {
+    let originalContent;
+    try {
+      originalContent = read(relativePath);
+    } catch (error) {
+      if (error.code === 'ENOENT' && transforms.every(({ optional }) => optional)) {
+        return null;
+      }
+      throw error;
+    }
+
+    let content = originalContent;
+    for (const { transform } of transforms) {
       content = transform(content);
     }
-    return [relativePath, content];
+    return [relativePath, content, originalContent];
   })
-  .filter(([relativePath, content]) => content !== read(relativePath));
+  .filter((entry) => entry !== null && entry[1] !== entry[2]);
 
 if (changed.length === 0 && !willRemoveStorybookDemo) {
   log('Demo data is already cleaned.');
