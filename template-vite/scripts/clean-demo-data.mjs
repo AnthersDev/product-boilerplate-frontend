@@ -39,16 +39,26 @@ const stripAnthersStorybookDemo = (source, relativePath) => {
   let result = source;
   while (result.includes(STORYBOOK_DEMO_START)) {
     const start = result.indexOf(STORYBOOK_DEMO_START);
+    const nextStart = result.indexOf(STORYBOOK_DEMO_START, start + STORYBOOK_DEMO_START.length);
     const end = result.indexOf(STORYBOOK_DEMO_END, start);
     if (end === -1) {
       throw new Error(`Missing ${STORYBOOK_DEMO_END} in ${relativePath}. No files were changed.`);
     }
-    let removeEnd = end + STORYBOOK_DEMO_END.length;
-    if (result[removeEnd] === '\n') removeEnd += 1;
-    result = `${result.slice(0, start)}${result.slice(removeEnd)}`;
+    if (nextStart !== -1 && nextStart < end) {
+      throw new Error(`Found nested ${STORYBOOK_DEMO_START} in ${relativePath}. No files were changed.`);
+    }
+
+    const startLine = result.lastIndexOf('\n', start - 1) + 1;
+    const removeStart = result.slice(startLine, start).trim() === '' ? startLine : start;
+    const endAfterMarker = end + STORYBOOK_DEMO_END.length;
+    const endLineBreak = result.indexOf('\n', endAfterMarker);
+    const endLine = result.slice(endAfterMarker, endLineBreak === -1 ? result.length : endLineBreak);
+    const removeEnd = endLine.trim() === '' ? (endLineBreak === -1 ? result.length : endLineBreak + 1) : endAfterMarker;
+
+    result = `${result.slice(0, removeStart)}${result.slice(removeEnd)}`;
   }
 
-  result = result.replace(/^import \{ AnthersStorybookLinks \} from '@\/demo\/anthers-storybook';\n/gm, '');
+  result = result.replace(/^import \{ AnthersStorybookLinks \} from '@\/demo\/anthers-storybook';\r?\n/gm, '');
   result = result.replace(/\n{3,}/g, '\n\n');
   return result;
 };
@@ -358,6 +368,18 @@ update(readmePath, (source) => {
     if (result.includes(storybookUiNote)) {
       result = replaceOnce(result, `${storybookUiNote}\n\n`, '', readmePath, 'docs/anthers-storybook.md');
     }
+  }
+
+  const optionalStorybookBarInstruction =
+    'For a clickable demo bar, wrap `<AnthersStorybookLinks components={[...]} />` in `{/* @clean-demo anthers-storybook */}` … `{/* @clean-demo-end */}` markers.';
+  if (result.includes(optionalStorybookBarInstruction)) {
+    result = replaceOnce(result, ` ${optionalStorybookBarInstruction}`, '', readmePath, 'docs/anthers-storybook.md');
+  }
+
+  const storybookCleanupInstruction =
+    'When adding an Anthers Storybook demo bar to a page, register that page in `storybookUsagePaths` in `scripts/clean-demo-data.mjs`; the `@clean-demo` markers alone do not register a page for cleanup.';
+  if (result.includes(storybookCleanupInstruction)) {
+    result = replaceOnce(result, `${storybookCleanupInstruction}\n\n`, '', readmePath, 'npm run clean:demo');
   }
 
   const cleanDemoScripts =

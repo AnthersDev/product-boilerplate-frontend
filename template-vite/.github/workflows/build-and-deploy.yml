@@ -8,24 +8,76 @@ on:
     branches:
       - main
       - staging
+  workflow_dispatch:
+    inputs:
+      rollback_ref:
+        description: Optional full commit SHA for a deliberate rollback; leave empty for the selected branch head
+        required: false
+        type: string
 
 concurrency:
   group: deploy-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   build-and-deploy:
+    if: github.ref_name == 'main' || github.ref_name == 'staging'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     environment: ${{ github.ref_name == 'main' && 'production' || 'staging' }}
 
     steps:
+      - name: Record Slack notification availability
+        id: slack
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          if [ -n "$SLACK_WEBHOOK_URL" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Validate rollback reference
+        if: ${{ inputs.rollback_ref != '' }}
+        env:
+          ROLLBACK_REF: ${{ inputs.rollback_ref }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" != "workflow_dispatch" ] || [[ ! "$ROLLBACK_REF" =~ ^[0-9a-fA-F]{40}$ ]]; then
+            echo "rollback_ref must be a full commit SHA supplied by workflow_dispatch." >&2
+            exit 1
+          fi
+
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.rollback_ref || github.sha }}
+
+      - name: Verify deployment commit is current branch head
+        id: head
+        env:
+          ROLLBACK_REF: ${{ inputs.rollback_ref }}
+        run: |
+          if [ -n "$ROLLBACK_REF" ]; then
+            echo "is_current=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::Deploying the explicitly requested rollback commit $ROLLBACK_REF."
+            exit 0
+          fi
+
+          if ! branch_head="$(git ls-remote --exit-code origin "refs/heads/${GITHUB_REF_NAME}" | cut -f1)"; then
+            echo "Could not verify the current $GITHUB_REF_NAME branch head." >&2
+            exit 1
+          fi
+          if [ "$branch_head" = "$GITHUB_SHA" ]; then
+            echo "is_current=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "is_current=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Skipping stale deployment for $GITHUB_SHA; $GITHUB_REF_NAME now points to $branch_head."
+          fi
 
       # Fail early if the selected GitHub Environment is missing AWS / API config.
       - name: Validate deploy configuration
-        id: deploy
+        if: ${{ steps.head.outputs.is_current == 'true' }}
         env:
           DEPLOY_ENVIRONMENT: ${{ github.ref_name == 'main' && 'production' || 'staging' }}
           AWS_REGION: ${{ vars.AWS_REGION }}
@@ -35,13 +87,7 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
           VITE_SSO_APP_ID: ${{ vars.VITE_SSO_APP_ID || secrets.VITE_SSO_APP_ID }}
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
         run: |
-          if [ -n "$SLACK_WEBHOOK_URL" ]; then
-            echo "slack=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "slack=false" >> "$GITHUB_OUTPUT"
-          fi
           if [ -n "$VITE_SSO_APP_ID" ]; then
             echo "Google/Gmail sign-in app ID is configured for the ${DEPLOY_ENVIRONMENT} build."
           else
@@ -59,6 +105,7 @@ jobs:
           fi
 
       - name: Set up Node.js with npm authentication
+        if: ${{ steps.head.outputs.is_current == 'true' }}
         uses: actions/setup-node@v4
         with:
           node-version-file: .node-version
@@ -68,12 +115,14 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN_READ_ONLY }}
 
       - name: Install dependencies
+        if: ${{ steps.head.outputs.is_current == 'true' }}
         env:
           # setup-node writes an .npmrc token reference; npm ci also needs the token.
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN_READ_ONLY }}
         run: npm ci
 
       - name: Build the project
+        if: ${{ steps.head.outputs.is_current == 'true' }}
         env:
           # Vite inlines these at build time. Set per GitHub Environment (staging vs production).
           VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
@@ -89,6 +138,7 @@ jobs:
 
       # Hashed Vite output lives in dist/assets. Content hashes → cache for 1 year.
       - name: Deploy hashed static assets to S3
+        if: ${{ steps.head.outputs.is_current == 'true' }}
         uses: jakejarvis/s3-sync-action@master
         with:
           # No spaces/quotes: s3-sync-action passes args as Docker CMD.
@@ -102,10 +152,11 @@ jobs:
           DEST_DIR: assets
 
       # index.html and other unhashed files must revalidate so deploys go live.
-      - name: Deploy HTML and unhashed files to S3
+      - name: Deploy non-worker root files to S3
+        if: ${{ steps.head.outputs.is_current == 'true' }}
         uses: jakejarvis/s3-sync-action@master
         with:
-          args: --exclude=assets/* --exclude=assets/*/* --cache-control no-cache
+          args: --exclude=assets/* --exclude=assets/*/* --exclude=sw.js --exclude=workbox-*.js --cache-control no-cache
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -113,17 +164,60 @@ jobs:
           AWS_S3_BUCKET: ${{ vars.AWS_S3_BUCKET }}
           SOURCE_DIR: dist
 
-      - name: Invalidate CloudFront
-        uses: chetan/invalidate-cloudfront-action@v2
+      - name: Invalidate non-worker root files and wait for completion
+        if: ${{ steps.head.outputs.is_current == 'true' }}
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_REGION: ${{ vars.AWS_REGION }}
-          DISTRIBUTION: ${{ vars.CLOUDFRONT_DISTRIBUTION_ID }}
-          PATHS: '/*'
+          CLOUDFRONT_DISTRIBUTION_ID: ${{ vars.CLOUDFRONT_DISTRIBUTION_ID }}
+        run: |
+          mapfile -t paths < <(find dist -maxdepth 1 -type f ! -name 'sw.js' ! -name 'workbox-*.js' -printf '/%f\n' | sort)
+          if [ "${#paths[@]}" -eq 0 ]; then
+            echo "No non-worker root files were found to invalidate." >&2
+            exit 1
+          fi
+          invalidation_id="$(aws cloudfront create-invalidation \
+            --distribution-id "$CLOUDFRONT_DISTRIBUTION_ID" \
+            --paths "${paths[@]}" \
+            --query 'Invalidation.Id' \
+            --output text)"
+          aws cloudfront wait invalidation-completed \
+            --distribution-id "$CLOUDFRONT_DISTRIBUTION_ID" \
+            --id "$invalidation_id"
+
+      - name: Deploy service worker and Workbox imports to S3
+        if: ${{ steps.head.outputs.is_current == 'true' }}
+        uses: jakejarvis/s3-sync-action@master
+        with:
+          args: --exclude=* --include=sw.js --include=workbox-*.js --cache-control no-cache
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ vars.AWS_REGION }}
+          AWS_S3_BUCKET: ${{ vars.AWS_S3_BUCKET }}
+          SOURCE_DIR: dist
+
+      - name: Invalidate CloudFront and wait for completion
+        if: ${{ steps.head.outputs.is_current == 'true' }}
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ vars.AWS_REGION }}
+          CLOUDFRONT_DISTRIBUTION_ID: ${{ vars.CLOUDFRONT_DISTRIBUTION_ID }}
+        run: |
+          invalidation_id="$(aws cloudfront create-invalidation \
+            --distribution-id "$CLOUDFRONT_DISTRIBUTION_ID" \
+            --paths '/*' \
+            --query 'Invalidation.Id' \
+            --output text)"
+          aws cloudfront wait invalidation-completed \
+            --distribution-id "$CLOUDFRONT_DISTRIBUTION_ID" \
+            --id "$invalidation_id"
 
       - name: Notify Slack on Success
-        if: success() && steps.deploy.outputs.slack == 'true'
+        if: ${{ success() && steps.head.outputs.is_current == 'true' && steps.slack.outputs.enabled == 'true' }}
+        continue-on-error: true
         uses: 8398a7/action-slack@v3
         with:
           status: success
@@ -137,7 +231,7 @@ jobs:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
 
       - name: Notify Slack on Failure
-        if: failure() && steps.deploy.outputs.slack == 'true'
+        if: ${{ failure() && steps.head.outputs.is_current != 'false' && steps.slack.outputs.enabled == 'true' }}
         uses: 8398a7/action-slack@v3
         with:
           status: failure

@@ -34,13 +34,13 @@ Dependabot, `CODEOWNERS`, and Super Linter are not part of this template. Do not
 | `tests.yml` | Push to `main`, and non-draft pull requests to `main` | Installs dependencies, then `npm run test` if the script exists. |
 | `pr-review.yml` | Non-draft pull requests to `main` | Danger JS. Fails the check when the description is missing the PR template sections. Warns on an unchecked checklist and on diffs over 200 lines. |
 | `todo.yml` | Pull requests to `main` from this repository | Opens or closes issues from `TODO` comments in the pull request's full diff. Commits inserted issue links onto the pull request branch. Does not push to `main`. |
-| `build-and-deploy.yml` | Push to `main` or `staging` | Validates GitHub Environment config, `npm ci` + `npm run build`, syncs `dist` to S3 (immutable hashed assets + no-cache HTML), invalidates CloudFront, optional Slack notify |
+| `build-and-deploy.yml` | Push to `main` or `staging`; manual dispatch for rollback | Validates GitHub Environment config, builds and deploys assets before worker files, waits for CloudFront invalidations, optional Slack notify |
 
 ### Required repository secrets
 
 In the repository, open **Settings → Secrets and variables → Actions → New repository secret** and add these secrets before running CI:
 
-- `NPM_TOKEN_READ_ONLY`: a read-only npm token used by `type-check.yml`, `tests.yml`, `pr-review.yml`, and `build-and-deploy.yml` to install `@marmeto_engineering/anthers-components`.
+- `NPM_TOKEN_READ_ONLY`: a read-only npm token used by `type-check.yml`, `tests.yml`, and `pr-review.yml`; `build-and-deploy.yml` uses the selected environment secret when set, then falls back to this repository secret.
 - `DANGER_GITHUB_API_TOKEN`: a token used by `pr-review.yml` to access the GitHub API.
 
 Without these secrets, the affected workflows fail during dependency installation or API access.
@@ -56,9 +56,11 @@ Same model as Ping / Nexus / Pulse. Create two GitHub Environments: **`staging`*
 | `staging` | `staging` |
 | `main` | `production` |
 
-Concurrency is per branch (`deploy-…-${{ github.ref }}`), so a newer push cancels an in-flight deploy on that branch only.
+In **Settings → Environments → production**, set **Deployment branches and tags** to **Selected branches** and allow only `main`.
 
-### Environment variables (Actions → Environments → Variables)
+Concurrency is per branch (`deploy-…-${{ github.ref }}`), and active deployments are not canceled automatically. Stale runs verify the branch head before deployment. For an intentional rollback, run `build-and-deploy.yml` with a full commit SHA in its `rollback_ref` input.
+
+### Environment variables (Repository Settings → Environments → select the environment → Environment variables)
 
 Set these **per environment** (staging values must not point at production buckets):
 
@@ -68,19 +70,21 @@ Set these **per environment** (staging values must not point at production bucke
 | `AWS_S3_BUCKET` | Yes | Static hosting bucket |
 | `CLOUDFRONT_DISTRIBUTION_ID` | Yes | Distribution to invalidate after upload |
 | `VITE_API_BASE_URL` | Yes | Backend API base URL baked into the bundle |
-| `VITE_APP_NAME` | No | CSRF / refresh lock name (defaults to `app`) |
+| `VITE_APP_NAME` | Conditional | Must match backend `APP_NAME` for CSRF headers and the refresh lock; defaults to `app`, so set it when backend `APP_NAME` is not `app` |
 | `VITE_SSO_APP_ID` | No | Google sign-in app ID (warns if missing) |
 | `VITE_PUBLIC_POSTHOG_PROJECT_TOKEN` / `VITE_PUBLIC_POSTHOG_HOST` | No | PostHog |
 | `VITE_INTERCOM_APP_ID` / `VITE_INTERCOM_API_BASE` | No | Intercom |
 | `PRODUCT_NAME` | No | Slack notification label (falls back to repo name) |
 | `PRODUCT_FRONTEND_URL` | No | Slack “open the site” URL |
 
+Configure CloudFront to fall back to `/index.html` for client-side navigation routes such as `/login`. Keep asset and API requests outside this fallback: `/assets/*`, other asset paths, and `/api/*` must retain their normal responses.
+
 ### Environment secrets
 
 | Secret | Required | Purpose |
 | --- | --- | --- |
 | `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | Yes | IAM user limited to that environment’s bucket + CloudFront |
-| `NPM_TOKEN_READ_ONLY` | Yes* | Install private Anthers package (*repo-level secret is enough if shared) |
+| `NPM_TOKEN_READ_ONLY` | Yes* | Environment secret for the private Anthers package; it overrides the repository secret, which is the fallback |
 | `SLACK_WEBHOOK_URL` | No | Success/failure Slack messages (skipped when unset) |
 | `VITE_SSO_APP_ID` | No | Alternate place for the SSO app ID if you prefer a secret |
 
@@ -147,7 +151,7 @@ Open the MegaLinter job log and the uploaded `MegaLinter reports` artifact. Fixe
 
 ### Typecheck, tests, or deploy fail at install
 
-Confirm the `NPM_TOKEN_READ_ONLY` secret exists and can read `@marmeto_engineering/anthers-components`. A missing or expired token fails `npm install` before typecheck, tests, or deploy start.
+For `build-and-deploy.yml`, check the selected environment's `NPM_TOKEN_READ_ONLY` first because it overrides the repository secret; if it is unset, check the repository secret fallback. Confirm the effective token is valid and can read `@marmeto_engineering/anthers-components`. A missing or expired token fails `npm install` before typecheck, tests, or deploy start.
 
 ### Deploy fails on “Missing required settings”
 

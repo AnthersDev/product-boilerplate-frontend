@@ -72,6 +72,8 @@ npm run clean:demo
 
 This removes the seeded report rows and saved views, removes the home-page demo state switcher, and clears the **Registration** page sample form fields (`vendor-registration-form.ts` → empty `sections`). It keeps the mock API, authentication scaffolding, and the Registration route/shell available for local development.
 
+When adding an Anthers Storybook demo bar to a page, register that page in `storybookUsagePaths` in `scripts/clean-demo-data.mjs`; the `@clean-demo` markers alone do not register a page for cleanup.
+
 ### 5. Troubleshooting
 
 | Symptom | Cause | Solution |
