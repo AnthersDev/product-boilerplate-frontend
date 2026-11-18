@@ -417,7 +417,7 @@ update(homeContentPath, (source) => {
     homeContentPath,
     '<StatusScreen',
   );
-  return replaceOnce(
+  result = replaceOnce(
     result,
     `    return (
       <StatusScreen
@@ -425,10 +425,21 @@ update(homeContentPath, (source) => {
         description={data.description}
       />
     );`,
-    '    return <StatusScreen title="Nothing on your home page yet" description={data.description} />;',
+    `    return (
+      <StatusScreen
+        title="Nothing on your home page yet"
+        description={data.description}
+      />
+    );`,
     homeContentPath,
     'export const HomePageSections',
   );
+
+  result = result.replace(/^[ \t]*Button,[ \t]*\r?\n/m, '');
+  result = result.replace(/^[ \t]*import \{ env \} from '@\/libs\/env';\r?\n/m, '');
+  result = result.replace(/^[ \t]*import \{ useNavigate \} from 'react-router-dom';\r?\n/m, '');
+  result = result.replace(/^[ \t]*const navigate = useNavigate\(\);\r?\n/m, '');
+  return result;
 });
 
 update(registrationFormPath, (source) => {
