@@ -47,6 +47,11 @@ const removeStorybookModuleImports = (source) => {
       while (source[end] === ' ' || source[end] === '\t') end += 1;
       if (source[end] === '\r') end += 1;
       if (source[end] === '\n') end += 1;
+      const followingLineBreak = source.indexOf('\n', end);
+      const followingLineEnd = followingLineBreak === -1 ? source.length : followingLineBreak;
+      if (source.slice(end, followingLineEnd).trim() === '') {
+        end = followingLineBreak === -1 ? source.length : followingLineBreak + 1;
+      }
       ranges.push([start, end]);
       return;
     }
