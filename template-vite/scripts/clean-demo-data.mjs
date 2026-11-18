@@ -3,6 +3,7 @@ import { existsSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'no
 import path from 'node:path';
 import { argv, exit } from 'node:process';
 import { fileURLToPath } from 'node:url';
+import ts from 'typescript';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const isDryRun = argv.includes('--dry-run');
@@ -12,8 +13,77 @@ const read = (relativePath) => readFileSync(path.join(root, relativePath), 'utf8
 const STORYBOOK_DEMO_START = '{/* @clean-demo anthers-storybook */}';
 const STORYBOOK_DEMO_END = '{/* @clean-demo-end */}';
 const storybookDemoDir = 'src/demo/anthers-storybook';
-const storybookModuleImportPattern =
-  /^(?:import\b(?:(?!^import\b)[\s\S])*?\bfrom\s+['"]@\/demo\/anthers-storybook['"];?|import\s+['"]@\/demo\/anthers-storybook['"];?)[ \t]*(?:\r?\n|$)/gm;
+const storybookModulePathPattern = /^@\/demo\/anthers-storybook(?:\/|$)/;
+
+const parseSource = (source, fileName = 'source.tsx') =>
+  ts.createSourceFile(fileName, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+
+const isStorybookModuleSpecifier = (node) =>
+  node !== undefined && ts.isStringLiteralLike(node) && storybookModulePathPattern.test(node.text);
+
+const hasStorybookModuleImport = (source) => {
+  const sourceFile = parseSource(source);
+  let found = false;
+  const visit = (node) => {
+    if (ts.isImportDeclaration(node) && isStorybookModuleSpecifier(node.moduleSpecifier)) {
+      found = true;
+      return;
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(sourceFile);
+  return found;
+};
+
+const removeStorybookModuleImports = (source) => {
+  const sourceFile = parseSource(source);
+  const ranges = [];
+  const visit = (node) => {
+    if (ts.isImportDeclaration(node) && isStorybookModuleSpecifier(node.moduleSpecifier)) {
+      const importStart = node.getStart(sourceFile);
+      const lineStart = source.lastIndexOf('\n', importStart - 1) + 1;
+      const start = source.slice(lineStart, importStart).trim() === '' ? lineStart : importStart;
+      let end = node.end;
+      while (source[end] === ' ' || source[end] === '\t') end += 1;
+      if (source[end] === '\r') end += 1;
+      if (source[end] === '\n') end += 1;
+      ranges.push([start, end]);
+      return;
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(sourceFile);
+  return ranges
+    .sort(([left], [right]) => right - left)
+    .reduce((result, [start, end]) => `${result.slice(0, start)}${result.slice(end)}`, source);
+};
+
+const hasStorybookModuleReference = (source) => {
+  const sourceFile = parseSource(source);
+  let found = false;
+  const visit = (node) => {
+    if (
+      ((ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) &&
+        node.moduleSpecifier &&
+        isStorybookModuleSpecifier(node.moduleSpecifier)) ||
+      (ts.isCallExpression(node) &&
+        ((node.expression.kind === ts.SyntaxKind.ImportKeyword && isStorybookModuleSpecifier(node.arguments[0])) ||
+          (ts.isIdentifier(node.expression) &&
+            node.expression.text === 'require' &&
+            isStorybookModuleSpecifier(node.arguments[0])))) ||
+      (ts.isImportTypeNode(node) &&
+        ts.isLiteralTypeNode(node.argument) &&
+        isStorybookModuleSpecifier(node.argument.literal)) ||
+      (ts.isIdentifier(node) && node.text === 'AnthersStorybookLinks')
+    ) {
+      found = true;
+      return;
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(sourceFile);
+  return found;
+};
 
 const listSourceFiles = (absoluteDirectory, relativeDirectory = 'src') =>
   readdirSync(absoluteDirectory, { withFileTypes: true }).flatMap((entry) => {
@@ -22,8 +92,6 @@ const listSourceFiles = (absoluteDirectory, relativeDirectory = 'src') =>
     if (entry.isDirectory()) return listSourceFiles(absolutePath, relativePath);
     return entry.isFile() && /\.[cm]?[jt]sx?$/.test(entry.name) ? [relativePath] : [];
   });
-
-const hasStorybookModuleImport = (source) => source.match(storybookModuleImportPattern) !== null;
 
 /** Pages/features that mount clickable Anthers Storybook demo buttons. */
 const storybookUsagePaths = [
@@ -72,7 +140,7 @@ const stripAnthersStorybookDemo = (source, relativePath) => {
     removedDemoBlock = true;
   }
 
-  if (removedDemoBlock) result = result.replace(storybookModuleImportPattern, '');
+  if (removedDemoBlock) result = removeStorybookModuleImports(result);
   return result;
 };
 
@@ -402,8 +470,25 @@ update(readmePath, (source) => {
 
   const optionalStorybookBarInstruction =
     'For a clickable demo bar, register its page in `storybookUsagePaths` in `scripts/clean-demo-data.mjs` (the markers alone do not register it), then wrap `<AnthersStorybookLinks components={[...]} />` in `{/* @clean-demo anthers-storybook */}` … `{/* @clean-demo-end */}` markers.';
-  if (result.includes(optionalStorybookBarInstruction)) {
-    result = replaceOnce(result, ` ${optionalStorybookBarInstruction}`, '', readmePath, 'docs/anthers-storybook.md');
+  const optionalInstructionStart = result.indexOf(optionalStorybookBarInstruction);
+  if (optionalInstructionStart !== -1) {
+    const previousCharacter = result[optionalInstructionStart - 1];
+    let separator = '';
+    if (previousCharacter === '\n') {
+      separator = result[optionalInstructionStart - 2] === '\r' ? '\r\n' : '\n';
+    } else if (previousCharacter === ' ') {
+      separator = ' ';
+    }
+    if (!separator) {
+      throw new Error(`Could not find expected sentence separator in ${readmePath}. No files were changed.`);
+    }
+    result = replaceOnce(
+      result,
+      `${separator}${optionalStorybookBarInstruction}`,
+      separator === ' ' ? '' : separator,
+      readmePath,
+      'docs/anthers-storybook.md',
+    );
   }
 
   const storybookCleanupInstruction =
@@ -468,7 +553,7 @@ const changedContent = new Map(changed.map(([relativePath, content]) => [relativ
 const remainingStorybookReferences = sourceFiles.filter((relativePath) => {
   if (relativePath.startsWith(`${storybookDemoDir}/`)) return false;
   const source = changedContent.get(relativePath) ?? read(relativePath);
-  return hasStorybookModuleImport(source) || /\bAnthersStorybookLinks\b/.test(source);
+  return hasStorybookModuleReference(source) || /\bAnthersStorybookLinks\b/.test(source);
 });
 if (remainingStorybookReferences.length > 0) {
   throw new Error(
