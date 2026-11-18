@@ -1,0 +1,154 @@
+name: Build and Deploy to S3
+
+# Auto-deploy on push (same pattern as Ping / Nexus / Pulse):
+# - `staging` branch → GitHub Environment `staging`
+# - `main` branch → GitHub Environment `production`
+on:
+  push:
+    branches:
+      - main
+      - staging
+
+concurrency:
+  group: deploy-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: ${{ github.ref_name == 'main' && 'production' || 'staging' }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Fail early if the selected GitHub Environment is missing AWS / API config.
+      - name: Validate deploy configuration
+        id: deploy
+        env:
+          DEPLOY_ENVIRONMENT: ${{ github.ref_name == 'main' && 'production' || 'staging' }}
+          AWS_REGION: ${{ vars.AWS_REGION }}
+          AWS_S3_BUCKET: ${{ vars.AWS_S3_BUCKET }}
+          CLOUDFRONT_DISTRIBUTION_ID: ${{ vars.CLOUDFRONT_DISTRIBUTION_ID }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
+          VITE_SSO_APP_ID: ${{ vars.VITE_SSO_APP_ID || secrets.VITE_SSO_APP_ID }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          if [ -n "$SLACK_WEBHOOK_URL" ]; then
+            echo "slack=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "slack=false" >> "$GITHUB_OUTPUT"
+          fi
+          if [ -n "$VITE_SSO_APP_ID" ]; then
+            echo "Google/Gmail sign-in app ID is configured for the ${DEPLOY_ENVIRONMENT} build."
+          else
+            echo "::warning::VITE_SSO_APP_ID is not configured for the ${DEPLOY_ENVIRONMENT} build; Google/Gmail sign-in will be unavailable."
+          fi
+          missing=()
+          for name in AWS_REGION AWS_S3_BUCKET CLOUDFRONT_DISTRIBUTION_ID AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY VITE_API_BASE_URL; do
+            if [ -z "${!name}" ]; then
+              missing+=("$name")
+            fi
+          done
+          if [ "${#missing[@]}" -gt 0 ]; then
+            printf 'Missing required settings in the %s GitHub environment: %s\n' "$DEPLOY_ENVIRONMENT" "${missing[*]}" >&2
+            exit 1
+          fi
+
+      - name: Set up Node.js with npm authentication
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          registry-url: https://registry.npmjs.org
+          scope: '@marmeto_engineering'
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN_READ_ONLY }}
+
+      - name: Install dependencies
+        env:
+          # setup-node writes an .npmrc token reference; npm ci also needs the token.
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN_READ_ONLY }}
+        run: npm ci
+
+      - name: Build the project
+        env:
+          # Vite inlines these at build time. Set per GitHub Environment (staging vs production).
+          VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
+          VITE_APP_NAME: ${{ vars.VITE_APP_NAME || 'app' }}
+          VITE_SSO_APP_ID: ${{ vars.VITE_SSO_APP_ID || secrets.VITE_SSO_APP_ID || '' }}
+          VITE_PUBLIC_POSTHOG_PROJECT_TOKEN: ${{ vars.VITE_PUBLIC_POSTHOG_PROJECT_TOKEN || '' }}
+          VITE_PUBLIC_POSTHOG_HOST: ${{ vars.VITE_PUBLIC_POSTHOG_HOST || '' }}
+          VITE_INTERCOM_APP_ID: ${{ vars.VITE_INTERCOM_APP_ID || '' }}
+          VITE_INTERCOM_API_BASE: ${{ vars.VITE_INTERCOM_API_BASE || '' }}
+          # Builds never enable the mock API.
+          VITE_USE_MOCK_API: 'false'
+        run: npm run build
+
+      # Hashed Vite output lives in dist/assets. Content hashes → cache for 1 year.
+      - name: Deploy hashed static assets to S3
+        uses: jakejarvis/s3-sync-action@master
+        with:
+          # No spaces/quotes: s3-sync-action passes args as Docker CMD.
+          args: --cache-control public,max-age=31536000,immutable --metadata-directive REPLACE
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ vars.AWS_REGION }}
+          AWS_S3_BUCKET: ${{ vars.AWS_S3_BUCKET }}
+          SOURCE_DIR: dist/assets
+          DEST_DIR: assets
+
+      # index.html and other unhashed files must revalidate so deploys go live.
+      - name: Deploy HTML and unhashed files to S3
+        uses: jakejarvis/s3-sync-action@master
+        with:
+          args: --exclude=assets/* --exclude=assets/*/* --cache-control no-cache
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ vars.AWS_REGION }}
+          AWS_S3_BUCKET: ${{ vars.AWS_S3_BUCKET }}
+          SOURCE_DIR: dist
+
+      - name: Invalidate CloudFront
+        uses: chetan/invalidate-cloudfront-action@v2
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ vars.AWS_REGION }}
+          DISTRIBUTION: ${{ vars.CLOUDFRONT_DISTRIBUTION_ID }}
+          PATHS: '/*'
+
+      - name: Notify Slack on Success
+        if: success() && steps.deploy.outputs.slack == 'true'
+        uses: 8398a7/action-slack@v3
+        with:
+          status: success
+          text: |
+            :tada: ${{ vars.PRODUCT_NAME || github.event.repository.name }} *${{ github.ref_name == 'main' && 'production' || 'staging' }}* Deployment Successful!
+            You can access it here: ${{ vars.PRODUCT_FRONTEND_URL }}
+            Branch: ${{ github.ref_name }}
+            Author: ${{ github.actor }}
+            Commit Message: ${{ github.event.head_commit.message }}
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+      - name: Notify Slack on Failure
+        if: failure() && steps.deploy.outputs.slack == 'true'
+        uses: 8398a7/action-slack@v3
+        with:
+          status: failure
+          text: |
+            :x: ${{ vars.PRODUCT_NAME || github.event.repository.name }} *${{ github.ref_name == 'main' && 'production' || 'staging' }}* Deployment Failed!
+
+            Repository: ${{ github.repository }}
+            Branch: ${{ github.ref_name }}
+            Commit: ${{ github.sha }}
+            Author: ${{ github.actor }}
+
+            **Workflow URL:** ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}

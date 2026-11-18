@@ -8,6 +8,7 @@ import { Link } from 'react-router-dom';
 import { Button, HomePageLayout } from '@marmeto_engineering/anthers-components';
 
 import { StatusScreen } from '@/components/StatusScreen';
+import { AnthersStorybookLinks } from '@/demo/anthers-storybook';
 import { useSession } from '@/features/auth';
 import { HomePageLoading, HomePageSections, useHomeDemoScenario, useHomePage } from '@/features/home';
 import { env } from '@/libs/env';
@@ -20,6 +21,12 @@ const Home = () => {
 
   return (
     <>
+      {/* @clean-demo anthers-storybook */}
+      <AnthersStorybookLinks
+        className="mb-3"
+        components={['AppLayout', 'Sidebar', 'HomePageLayout', 'Button', 'HeadingWithDescription']}
+      />
+      {/* @clean-demo-end */}
       {env.useMockApi && (
         <p
           role="status"

@@ -100,7 +100,7 @@ Examples used today: `settings.userAndPermissions.manage`, `settings.notificatio
 | `PermissionGuard` (`src/components/PermissionGuard`) | Hide buttons (`fallback="hidden"`, default) or block pages (`fallback="denied"` → Anthers `AccessDenied`) |
 | `useHasPermission` (`@/features/auth`) | Imperative boolean checks |
 
-Home shows a sample **Manage users** button gated on `settings.userAndPermissions.manage`. Prefer `PermissionGuard` over ad-hoc `session.permissions.includes` in JSX. For a full walkthrough (nested nav + allow / deny / hidden), use the **Permissions** sidebar group.
+Prefer `PermissionGuard` over ad-hoc `session.permissions.includes` in JSX. For a full walkthrough (nested nav + allow / deny / hidden), use the **Permissions** sidebar group.
 
 ### API clients
 
@@ -231,7 +231,7 @@ Settings, users, and notifications already follow Nexus-style Anthers layouts (`
 - Pass `apiClient={httpClient}` and real `userPermissions` from session.
 - Prefer extending those layouts over rebuilding tables/forms.
 - Keep visual language consistent with existing settings pages (Lucide icons, stroke width, spacing).
-- **Storybook:** Chromatic URLs live as comments above Anthers imports, and in [docs/anthers-storybook.md](./docs/anthers-storybook.md). Base: https://main--685923032e27da931cdadb63.chromatic.com/ — when adding a new Anthers component, add the Storybook comment + docs row.
+- **Storybook:** Chromatic URLs live as comments above Anthers imports, clickable demo bars via `AnthersStorybookLinks` (`src/demo/anthers-storybook`, stripped by `npm run clean:demo`), and [docs/anthers-storybook.md](./docs/anthers-storybook.md). Base: https://main--685923032e27da931cdadb63.chromatic.com/ — when adding a new Anthers component, add the Storybook comment + docs row (+ optional `@clean-demo anthers-storybook` UI bar).
 
 ---
 
@@ -242,6 +242,7 @@ Working in the **boilerplate repo** (not a single product):
 - App code under `template-vite/`; CI at repo `.github/workflows/template-ci.yml`.
 - Trusted CI needs `NPM_TOKEN_READ_ONLY`; fork CI stubs Anthers — don’t break that split.
 - Keep Node 24. Bump Anthers deliberately; smoke login → home → reports → settings (users + notifications).
+- Deploy workflow: `template-vite/.github/workflows/build-and-deploy.yml` — do not hard-code product AWS/API URLs; products set GitHub Environment `vars` / `secrets`. Document deploy secrets in [docs/GITHUB_SETUP_GUIDE.md](./docs/GITHUB_SETUP_GUIDE.md).
 - Changes that affect generated apps: update README, `.env.example`, **AGENTS.md**, and any workflows under `template-vite/.github/`.
 
 ---
@@ -272,6 +273,8 @@ Record notable capability additions here so future sessions don’t rediscover t
 
 | Date | Change |
 | --- | --- |
+| 2026-11-18 | Auto-deploy: `build-and-deploy.yml` (S3 + CloudFront on `staging`/`main`, Ping/Nexus pattern); setup in [docs/GITHUB_SETUP_GUIDE.md](./docs/GITHUB_SETUP_GUIDE.md) |
+| 2026-11-18 | Clickable on-page Anthers Storybook buttons (`AnthersStorybookLinks`); removed by `npm run clean:demo` |
 | 2026-11-17 | Nested **Permissions** sidebar demo (`/permissions/*`) for PermissionGuard states + Anthers menu locks |
 | 2026-11-17 | Anthers Storybook: Chromatic URL comments above every Anthers import; index at [docs/anthers-storybook.md](./docs/anthers-storybook.md) |
 | 2026-11-17 | First AI setup creates the app with `npx --yes github:AnthersDev/create-frontend my-app` in the chosen parent folder. A local `create-frontend` checkout is not required. |

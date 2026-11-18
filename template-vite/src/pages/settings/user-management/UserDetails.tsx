@@ -1,6 +1,7 @@
 /** Storybook: UserDetailsLayout — https://main--685923032e27da931cdadb63.chromatic.com/?path=/story/layouts-setting-layouts-permission-module-user-details-layout--docs */
 import { UserDetailsLayout } from '@marmeto_engineering/anthers-components';
 
+import { AnthersStorybookLinks } from '@/demo/anthers-storybook';
 import { useSession } from '@/features/auth';
 import { httpClient } from '@/services/api';
 
@@ -21,18 +22,23 @@ const UserDetails = () => {
     : 'user';
 
   return (
-    <UserDetailsLayout
-      apiClient={httpClient}
-      currentUserId={session.user.id}
-      currentUserType={currentUserType}
-      userPermissions={session.permissions}
-      onSaveSuccess={() => {
-        // Toast is handled inside UserDetailsLayout.
-      }}
-      onError={(message) => {
-        console.error('Error updating user details', message);
-      }}
-    />
+    <>
+      {/* @clean-demo anthers-storybook */}
+      <AnthersStorybookLinks className="mb-3" components={['UserDetailsLayout']} />
+      {/* @clean-demo-end */}
+      <UserDetailsLayout
+        apiClient={httpClient}
+        currentUserId={session.user.id}
+        currentUserType={currentUserType}
+        userPermissions={session.permissions}
+        onSaveSuccess={() => {
+          // Toast is handled inside UserDetailsLayout.
+        }}
+        onError={(message) => {
+          console.error('Error updating user details', message);
+        }}
+      />
+    </>
   );
 };
 

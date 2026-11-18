@@ -105,7 +105,9 @@ Every Anthers layout/component used in this template has a **Storybook comment a
 | Index of all used components | [docs/anthers-storybook.md](./docs/anthers-storybook.md) |
 | Chromatic home | [main--685923032e27da931cdadb63.chromatic.com](https://main--685923032e27da931cdadb63.chromatic.com/) |
 
-When you add a new Anthers import, add the matching Storybook URL comment (and a row in `docs/anthers-storybook.md`).
+In the running app, dashed **Anthers component docs** bars sit near Anthers usages. Each button opens that component in Chromatic Storybook (new tab). Copy explains they are demo-only and removed by `npm run clean:demo`. Source: `src/demo/anthers-storybook`.
+
+When you add a new Anthers import, add the matching Storybook URL comment (and a row in `docs/anthers-storybook.md`). For a clickable demo bar, wrap `<AnthersStorybookLinks components={[...]} />` in `{/* @clean-demo anthers-storybook */}` … `{/* @clean-demo-end */}` markers.
 
 ### App routes
 
@@ -241,7 +243,7 @@ const canManageUsers = useHasPermission('settings.userAndPermissions.manage');
 | `requireAll` | `true` = need every permission; default = any one |
 | `fallback` | `hidden` (default), `denied` (`AccessDenied`), or a custom node |
 
-**Sample on Home:** a **Manage users** button wrapped in `PermissionGuard` for `settings.userAndPermissions.manage`. With the mock API, owner/admin orgs see it; switch to **Initech Outlet** (member) and it disappears.
+**Try the Permissions sidebar** (`/permissions`) for allow / deny / hidden demos instead of scattering samples on Home.
 
 ### Branding
 
@@ -344,6 +346,17 @@ Same pattern as Ping / Nexus: **no key → no-op**; set the env var (or equivale
 
 Code: `src/libs/analytics/*`, wired through `AnalyticsProvider` in `src/App.tsx`.
 
+### Staging and production deployments
+
+Generated apps ship `.github/workflows/build-and-deploy.yml` (Ping / Nexus / Pulse pattern):
+
+| Branch | GitHub Environment | What happens |
+| --- | --- | --- |
+| `staging` | `staging` | Build → S3 → CloudFront invalidate |
+| `main` | `production` | Same for production |
+
+Configure each environment’s AWS variables/secrets and `VITE_API_BASE_URL` before the first deploy. Full checklist: [docs/GITHUB_SETUP_GUIDE.md](./docs/GITHUB_SETUP_GUIDE.md#staging-and-production-deploy-s3--cloudfront).
+
 ### Scripts
 
 | `npm run <script>` | Description |
@@ -354,7 +367,7 @@ Code: `src/libs/analytics/*`, wired through `AnalyticsProvider` in `src/App.tsx`
 | `lint` / `lint:fix` | ESLint |
 | `format` | Prettier |
 | `type-check` | `tsc --noEmit` |
-| `clean:demo` | Strip demo mock data, homepage demo controls, and registration sample form fields |
+| `clean:demo` | Strip demo mock data, homepage demo controls, registration sample form fields, and on-page Anthers Storybook buttons |
 
 ### Git hooks
 

@@ -4,7 +4,7 @@ Published Storybook for `@marmeto_engineering/anthers-components`:
 
 **Base:** [https://main--685923032e27da931cdadb63.chromatic.com/](https://main--685923032e27da931cdadb63.chromatic.com/)
 
-Use these links when wiring or changing Anthers usage in this template. The same URLs are also noted as comments above Anthers imports in the source files listed below.
+Use these links when wiring or changing Anthers usage in this template. The same URLs are noted as comments above Anthers imports, and (until you run `npm run clean:demo`) as **Anthers component docs** bars in the running app (`src/demo/anthers-storybook`) — each button is labeled `Open <Component>` and opens Chromatic Storybook.
 
 ## Layouts used in this boilerplate
 

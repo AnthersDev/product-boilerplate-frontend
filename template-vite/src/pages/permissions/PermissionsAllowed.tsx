@@ -9,6 +9,7 @@ import { Button, PageLayout } from '@marmeto_engineering/anthers-components';
 import { ArrowRight } from 'lucide-react';
 
 import { PermissionGuard } from '@/components/PermissionGuard';
+import { AnthersStorybookLinks } from '@/demo/anthers-storybook';
 
 /**
  * Full-page allow path: PermissionGuard with fallback="denied".
@@ -29,6 +30,12 @@ const PermissionsAllowed = () => {
         title="Allowed content"
         description="You have settings.userAndPermissions.manage, so PermissionGuard rendered this page."
       >
+        {/* @clean-demo anthers-storybook */}
+        <AnthersStorybookLinks
+          className="mb-4"
+          components={['PermissionGuard', 'PageLayout', 'Button', 'AccessDenied']}
+        />
+        {/* @clean-demo-end */}
         <div className="text-body flex max-w-xl flex-col gap-4 text-zinc-700">
           <p>
             Use this pattern for whole screens or sections that must not be usable without a permission. Prefer{' '}

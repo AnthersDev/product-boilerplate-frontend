@@ -9,6 +9,7 @@ import { Button, PageLayout } from '@marmeto_engineering/anthers-components';
 import { ArrowRight, Users } from 'lucide-react';
 
 import { PermissionGuard } from '@/components/PermissionGuard';
+import { AnthersStorybookLinks } from '@/demo/anthers-storybook';
 import { useHasPermission } from '@/features/auth';
 import { env } from '@/libs/env';
 
@@ -24,6 +25,9 @@ const PermissionsHidden = () => {
       title="Hidden actions"
       description="The page is public to signed-in users. Manage actions only render when the session has permission."
     >
+      {/* @clean-demo anthers-storybook */}
+      <AnthersStorybookLinks className="mb-4" components={['PermissionGuard', 'PageLayout', 'Button']} />
+      {/* @clean-demo-end */}
       <div className="text-body flex max-w-xl flex-col gap-6 text-zinc-700">
         <p>
           Default <code>PermissionGuard</code> fallback is <code>&quot;hidden&quot;</code> — good for toolbar buttons

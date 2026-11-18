@@ -1,5 +1,5 @@
 import { log } from 'node:console';
-import { readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { argv, exit } from 'node:process';
 import { fileURLToPath } from 'node:url';
@@ -8,6 +8,50 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const isDryRun = argv.includes('--dry-run');
 
 const read = (relativePath) => readFileSync(path.join(root, relativePath), 'utf8');
+
+const STORYBOOK_DEMO_START = '{/* @clean-demo anthers-storybook */}';
+const STORYBOOK_DEMO_END = '{/* @clean-demo-end */}';
+const storybookDemoDir = 'src/demo/anthers-storybook';
+
+/** Pages/features that mount clickable Anthers Storybook demo buttons. */
+const storybookUsagePaths = [
+  'src/pages/Home.tsx',
+  'src/features/home/home-page-content.tsx',
+  'src/pages/registration/Registration.tsx',
+  'src/pages/analytics/Reports.tsx',
+  'src/pages/settings/Settings.tsx',
+  'src/pages/settings/user-management/UsersList.tsx',
+  'src/pages/settings/user-management/AddUser.tsx',
+  'src/pages/settings/user-management/UserDetails.tsx',
+  'src/pages/settings/notifications/Notifications.tsx',
+  'src/pages/settings/notifications/NotificationDetail.tsx',
+  'src/pages/WhatsNew.tsx',
+  'src/pages/NotFound.tsx',
+  'src/pages/auth/Login.tsx',
+  'src/pages/auth/SelectOrganization.tsx',
+  'src/pages/permissions/PermissionsOverview.tsx',
+  'src/pages/permissions/PermissionsAllowed.tsx',
+  'src/pages/permissions/PermissionsAccessDenied.tsx',
+  'src/pages/permissions/PermissionsHidden.tsx',
+];
+
+const stripAnthersStorybookDemo = (source, relativePath) => {
+  let result = source;
+  while (result.includes(STORYBOOK_DEMO_START)) {
+    const start = result.indexOf(STORYBOOK_DEMO_START);
+    const end = result.indexOf(STORYBOOK_DEMO_END, start);
+    if (end === -1) {
+      throw new Error(`Missing ${STORYBOOK_DEMO_END} in ${relativePath}. No files were changed.`);
+    }
+    let removeEnd = end + STORYBOOK_DEMO_END.length;
+    if (result[removeEnd] === '\n') removeEnd += 1;
+    result = `${result.slice(0, start)}${result.slice(removeEnd)}`;
+  }
+
+  result = result.replace(/^import \{ AnthersStorybookLinks \} from '@\/demo\/anthers-storybook';\n/gm, '');
+  result = result.replace(/\n{3,}/g, '\n\n');
+  return result;
+};
 
 const replaceOnce = (source, before, after, relativePath, alreadyCleanMarker = after) => {
   const first = source.indexOf(before);
@@ -43,7 +87,14 @@ const replaceToEnd = (source, startMarker, replacement, relativePath, alreadyCle
   return `${source.slice(0, start)}${replacement}`;
 };
 
-const update = (relativePath, transform) => [relativePath, transform(read(relativePath))];
+/** Collect transforms per path so overlapping clean steps (e.g. Home + Storybook) compose. */
+const transformPipeline = new Map();
+
+const update = (relativePath, transform) => {
+  const transforms = transformPipeline.get(relativePath) ?? [];
+  transforms.push(transform);
+  transformPipeline.set(relativePath, transforms);
+};
 
 const reportHandlersPath = 'src/services/mocks/reports-handlers.ts';
 const homeHandlersPath = 'src/services/mocks/home-handlers.ts';
@@ -69,8 +120,7 @@ import { homePageQueryOptions } from '../services/home-service';
 export const useHomePage = () => useQuery(homePageQueryOptions());
 `;
 
-const changes = [
-  update(reportHandlersPath, (source) => {
+update(reportHandlersPath, (source) => {
     let result = replaceSection(
       source,
       'const ORDERS: ReportOrderNode[] = [',
@@ -88,8 +138,9 @@ const changes = [
       'const DEFAULT_VIEWS: SavedFilterView[] = [];',
     );
     return result;
-  }),
-  update(homeHandlersPath, (source) => {
+});
+
+update(homeHandlersPath, (source) => {
     let result = replaceOnce(
       source,
       'const fail = (status: number, message: string): MockResponse => ({ status, data: { status: false, message } });\n',
@@ -124,15 +175,17 @@ const changes = [
       'handler: ({ adapterStorage }) => {',
     );
     return result;
-  }),
-  update(homeHookPath, (source) => {
+});
+
+update(homeHookPath, (source) => {
     if (!source.includes('useHomeDemoScenario')) {
       if (source === cleanHomeHook) return source;
       throw new Error(`Unexpected contents in ${homeHookPath}. No files were changed.`);
     }
     return cleanHomeHook;
-  }),
-  update(homeTypesPath, (source) => {
+});
+
+update(homeTypesPath, (source) => {
     const result = replaceToEnd(
       source,
       '/** Mock/API demo states.',
@@ -141,8 +194,9 @@ const changes = [
       'export interface HomePageDataProps',
     );
     return `${result.trimEnd()}\n`;
-  }),
-  update(homeServicePath, (source) => {
+});
+
+update(homeServicePath, (source) => {
     let result = replaceOnce(
       source,
       "import type { HomeDemoScenarioProps, HomePageDataProps } from '../types';",
@@ -187,8 +241,9 @@ const changes = [
       homeServicePath,
       'queryKey: homeQueryKeys.page(),',
     );
-  }),
-  update(homeIndexPath, (source) => {
+});
+
+update(homeIndexPath, (source) => {
     let result = replaceOnce(
       source,
       "export { useHomeDemoScenario, useHomePage } from './hooks/use-home';",
@@ -203,8 +258,9 @@ const changes = [
       homeIndexPath,
       'type HomePageDataProps',
     );
-  }),
-  update(homePagePath, (source) => {
+});
+
+update(homePagePath, (source) => {
     let result = replaceOnce(
       source,
       "import { Link } from 'react-router-dom';\n",
@@ -242,8 +298,9 @@ const changes = [
       'const home = useHomePage();',
     );
     return result;
-  }),
-  update(homeContentPath, (source) => {
+});
+
+update(homeContentPath, (source) => {
     let result = replaceOnce(
       source,
       `        actions={
@@ -270,15 +327,17 @@ const changes = [
       homeContentPath,
       'export const HomePageSections',
     );
-  }),
-  update(registrationFormPath, (source) => {
+});
+
+update(registrationFormPath, (source) => {
     if (!source.includes("id: 'company'") && source.includes('sections: []')) {
       return source.includes('Empty registration form after') ? source : cleanRegistrationForm;
     }
     if (source.trim() === cleanRegistrationForm.trim()) return source;
     return cleanRegistrationForm;
-  }),
-  update(readmePath, (source) => {
+});
+
+update(readmePath, (source) => {
     let result = source;
     const demoDescription = 'Home (Anthers shell). Mock demos: `?home=empty`, `?home=error`';
     if (result.includes(demoDescription)) {
@@ -297,13 +356,49 @@ const changes = [
       );
     }
 
+    const storybookUiNotes = [
+      'In the running app, dashed **Storybook** button bars sit near Anthers usages (open Chromatic in a new tab). They ship from `src/demo/anthers-storybook` and are removed by `npm run clean:demo`.',
+      'In the running app, dashed **Anthers component docs** bars sit near Anthers usages. Each button opens that component in Chromatic Storybook (new tab). Copy explains they are demo-only and removed by `npm run clean:demo`. Source: `src/demo/anthers-storybook`.',
+    ];
+    for (const storybookUiNote of storybookUiNotes) {
+      if (result.includes(storybookUiNote)) {
+        result = replaceOnce(result, `${storybookUiNote}\n\n`, '', readmePath, 'docs/anthers-storybook.md');
+      }
+    }
+
+    const cleanDemoScripts =
+      'Strip demo mock data, homepage demo controls, registration sample form fields, and on-page Anthers Storybook buttons';
+    if (result.includes(cleanDemoScripts)) {
+      result = replaceOnce(
+        result,
+        cleanDemoScripts,
+        'Strip demo mock data, homepage demo controls, and registration sample form fields',
+        readmePath,
+        'Strip demo mock data, homepage demo controls, and registration sample form fields',
+      );
+    }
+
     return result;
-  }),
-];
+});
 
-const changed = changes.filter(([relativePath, content]) => content !== read(relativePath));
+storybookUsagePaths.forEach((relativePath) => {
+  update(relativePath, (source) => stripAnthersStorybookDemo(source, relativePath));
+});
 
-if (changed.length === 0) {
+const storybookDemoAbs = path.join(root, storybookDemoDir);
+const willRemoveStorybookDemo = existsSync(storybookDemoAbs);
+
+const changed = [...transformPipeline.entries()]
+  .map(([relativePath, transforms]) => {
+    let content = read(relativePath);
+    for (const transform of transforms) {
+      content = transform(content);
+    }
+    return [relativePath, content];
+  })
+  .filter(([relativePath, content]) => content !== read(relativePath));
+
+if (changed.length === 0 && !willRemoveStorybookDemo) {
   log('Demo data is already cleaned.');
   exit(0);
 }
@@ -311,6 +406,7 @@ if (changed.length === 0) {
 if (isDryRun) {
   log('The following files would be updated:');
   changed.forEach(([relativePath]) => log(`- ${relativePath}`));
+  if (willRemoveStorybookDemo) log(`- (delete) ${storybookDemoDir}/`);
   exit(0);
 }
 
@@ -318,4 +414,14 @@ for (const [relativePath, content] of changed) {
   writeFileSync(path.join(root, relativePath), content);
 }
 
-log(`Cleaned demo report data, homepage states, and registration sample form in ${changed.length} files.`);
+if (willRemoveStorybookDemo) {
+  rmSync(storybookDemoAbs, { recursive: true, force: true });
+  const demoParent = path.join(root, 'src/demo');
+  if (existsSync(demoParent) && readdirSync(demoParent).length === 0) {
+    rmSync(demoParent, { recursive: true, force: true });
+  }
+}
+
+log(
+  `Cleaned demo report data, homepage states, registration sample form, and Anthers Storybook UI links in ${changed.length} file(s)${willRemoveStorybookDemo ? ` (removed ${storybookDemoDir})` : ''}.`,
+);

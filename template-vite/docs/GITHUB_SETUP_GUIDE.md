@@ -15,6 +15,7 @@ Dependabot, `CODEOWNERS`, and Super Linter are not part of this template. Do not
 - **Tests**: runs `npm run test` when that script exists
 - **Danger**: checks the pull request body against the PR template
 - **Todo checker**: turns `TODO` comments on a pull request into GitHub issues, then commits the issue links onto that pull request branch
+- **Build and deploy**: on push to `staging` / `main`, builds the Vite app and publishes to S3 + CloudFront (Ping / Nexus / Pulse pattern)
 
 ### Templates
 
@@ -33,17 +34,59 @@ Dependabot, `CODEOWNERS`, and Super Linter are not part of this template. Do not
 | `tests.yml` | Push to `main`, and non-draft pull requests to `main` | Installs dependencies, then `npm run test` if the script exists. |
 | `pr-review.yml` | Non-draft pull requests to `main` | Danger JS. Fails the check when the description is missing the PR template sections. Warns on an unchecked checklist and on diffs over 200 lines. |
 | `todo.yml` | Pull requests to `main` from this repository | Opens or closes issues from `TODO` comments in the pull request's full diff. Commits inserted issue links onto the pull request branch. Does not push to `main`. |
+| `build-and-deploy.yml` | Push to `main` or `staging` | Validates GitHub Environment config, `npm ci` + `npm run build`, syncs `dist` to S3 (immutable hashed assets + no-cache HTML), invalidates CloudFront, optional Slack notify |
 
 ### Required repository secrets
 
 In the repository, open **Settings → Secrets and variables → Actions → New repository secret** and add these secrets before running CI:
 
-- `NPM_TOKEN_READ_ONLY`: a read-only npm token used by `type-check.yml`, `tests.yml`, and `pr-review.yml` to install `@marmeto_engineering/anthers-components`.
+- `NPM_TOKEN_READ_ONLY`: a read-only npm token used by `type-check.yml`, `tests.yml`, `pr-review.yml`, and `build-and-deploy.yml` to install `@marmeto_engineering/anthers-components`.
 - `DANGER_GITHUB_API_TOKEN`: a token used by `pr-review.yml` to access the GitHub API.
 
 Without these secrets, the affected workflows fail during dependency installation or API access.
 
 Draft pull requests skip MegaLinter, typecheck, tests, and Danger.
+
+## Staging and production deploy (S3 + CloudFront)
+
+Same model as Ping / Nexus / Pulse. Create two GitHub Environments: **`staging`** and **`production`**.
+
+| Branch | GitHub Environment |
+| --- | --- |
+| `staging` | `staging` |
+| `main` | `production` |
+
+Concurrency is per branch (`deploy-…-${{ github.ref }}`), so a newer push cancels an in-flight deploy on that branch only.
+
+### Environment variables (Actions → Environments → Variables)
+
+Set these **per environment** (staging values must not point at production buckets):
+
+| Variable | Required | Purpose |
+| --- | --- | --- |
+| `AWS_REGION` | Yes | AWS region for S3 / CloudFront |
+| `AWS_S3_BUCKET` | Yes | Static hosting bucket |
+| `CLOUDFRONT_DISTRIBUTION_ID` | Yes | Distribution to invalidate after upload |
+| `VITE_API_BASE_URL` | Yes | Backend API base URL baked into the bundle |
+| `VITE_APP_NAME` | No | CSRF / refresh lock name (defaults to `app`) |
+| `VITE_SSO_APP_ID` | No | Google sign-in app ID (warns if missing) |
+| `VITE_PUBLIC_POSTHOG_PROJECT_TOKEN` / `VITE_PUBLIC_POSTHOG_HOST` | No | PostHog |
+| `VITE_INTERCOM_APP_ID` / `VITE_INTERCOM_API_BASE` | No | Intercom |
+| `PRODUCT_NAME` | No | Slack notification label (falls back to repo name) |
+| `PRODUCT_FRONTEND_URL` | No | Slack “open the site” URL |
+
+### Environment secrets
+
+| Secret | Required | Purpose |
+| --- | --- | --- |
+| `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | Yes | IAM user limited to that environment’s bucket + CloudFront |
+| `NPM_TOKEN_READ_ONLY` | Yes* | Install private Anthers package (*repo-level secret is enough if shared) |
+| `SLACK_WEBHOOK_URL` | No | Success/failure Slack messages (skipped when unset) |
+| `VITE_SSO_APP_ID` | No | Alternate place for the SSO app ID if you prefer a secret |
+
+The workflow validates required AWS + `VITE_API_BASE_URL` settings before building. Hashed files under `dist/assets` sync with a one-year immutable cache; HTML and other files use `no-cache`. Then it invalidates CloudFront `/*`.
+
+Vite values are baked at build time — changing a GitHub variable requires a new push (or workflow re-run) to take effect.
 
 ### Templates (`.github/`)
 
@@ -102,9 +145,13 @@ There is no `CODEOWNERS` file, so GitHub will not auto-request reviewers from a 
 
 Open the MegaLinter job log and the uploaded `MegaLinter reports` artifact. Fixes are committed only when `APPLY_FIXES` is on and the workflow has permission to push to the pull request branch.
 
-### Typecheck or tests fail at install
+### Typecheck, tests, or deploy fail at install
 
-Confirm the `NPM_TOKEN_READ_ONLY` secret exists and can read `@marmeto_engineering/anthers-components`. A missing or expired token fails `npm install` before typecheck or tests start.
+Confirm the `NPM_TOKEN_READ_ONLY` secret exists and can read `@marmeto_engineering/anthers-components`. A missing or expired token fails `npm install` before typecheck, tests, or deploy start.
+
+### Deploy fails on “Missing required settings”
+
+Create the `staging` / `production` GitHub Environments and set `AWS_REGION`, `AWS_S3_BUCKET`, `CLOUDFRONT_DISTRIBUTION_ID`, `VITE_API_BASE_URL`, plus AWS access key secrets on that environment. A push to `staging` or `main` will not publish until those exist.
 
 ### Danger fails on a new pull request
 

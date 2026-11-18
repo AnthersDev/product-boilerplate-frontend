@@ -9,6 +9,9 @@ import { useNavigate } from 'react-router-dom';
  */
 import { PageLayout, SettingListLayout, show, useGlobalSaveContext } from '@marmeto_engineering/anthers-components';
 import { Bell, Settings as SettingsIcon, Users } from 'lucide-react';
+
+import { AnthersStorybookLinks } from '@/demo/anthers-storybook';
+
 import GeneralSettings, { type GeneralSettingsValues } from './GeneralSettings';
 
 type SettingsSection = 'general';
@@ -168,29 +171,37 @@ const Settings = () => {
 
   if (!activeSection) {
     return (
-      <SettingListLayout
-        title="Settings"
-        cards={[
-          {
-            icon: <SettingsIcon className="text-gray-600" size={24} strokeWidth={1.75} />,
-            title: 'General',
-            description: 'Manage workspace details and regional preferences.',
-            onClick: () => setActiveSection('general'),
-          },
-          {
-            icon: <Users className="text-gray-600" size={24} strokeWidth={1.75} />,
-            title: 'User management',
-            description: 'Invite users and manage their access.',
-            onClick: () => navigate('/settings/users'),
-          },
-          {
-            icon: <Bell className="text-gray-600" size={24} strokeWidth={1.75} />,
-            title: 'Notifications',
-            description: 'View and manage your email notifications.',
-            onClick: () => navigate('/settings/notifications'),
-          },
-        ]}
-      />
+      <>
+        {/* @clean-demo anthers-storybook */}
+        <AnthersStorybookLinks
+          className="mb-3"
+          components={['SettingListLayout', 'PageLayout', 'GlobalSave', 'Toast']}
+        />
+        {/* @clean-demo-end */}
+        <SettingListLayout
+          title="Settings"
+          cards={[
+            {
+              icon: <SettingsIcon className="text-gray-600" size={24} strokeWidth={1.75} />,
+              title: 'General',
+              description: 'Manage workspace details and regional preferences.',
+              onClick: () => setActiveSection('general'),
+            },
+            {
+              icon: <Users className="text-gray-600" size={24} strokeWidth={1.75} />,
+              title: 'User management',
+              description: 'Invite users and manage their access.',
+              onClick: () => navigate('/settings/users'),
+            },
+            {
+              icon: <Bell className="text-gray-600" size={24} strokeWidth={1.75} />,
+              title: 'Notifications',
+              description: 'View and manage your email notifications.',
+              onClick: () => navigate('/settings/notifications'),
+            },
+          ]}
+        />
+      </>
     );
   }
 
@@ -202,6 +213,12 @@ const Settings = () => {
       description={currentSection.description}
       onBack={() => setActiveSection(null)}
     >
+      {/* @clean-demo anthers-storybook */}
+      <AnthersStorybookLinks
+        className="mb-4"
+        components={['PageLayout', 'SettingLayout', 'InputField', 'SelectBox', 'FileUploader', 'GlobalSave', 'Toast']}
+      />
+      {/* @clean-demo-end */}
       <div className="space-y-6">
         {activeSection === 'general' && (
           <GeneralSettings

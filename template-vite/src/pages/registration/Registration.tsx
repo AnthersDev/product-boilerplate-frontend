@@ -7,6 +7,8 @@ import { useNavigate } from 'react-router-dom';
  */
 import { FormPreviewPage, PageLayout, show } from '@marmeto_engineering/anthers-components';
 
+import { AnthersStorybookLinks } from '@/demo/anthers-storybook';
+
 import { vendorRegistrationSampleForm } from './vendor-registration-form';
 
 /**
@@ -25,6 +27,9 @@ const Registration = () => {
       mobileBlockedTitle="Please switch to a different device for best experience."
       mobileBlockedDescription=""
     >
+      {/* @clean-demo anthers-storybook */}
+      <AnthersStorybookLinks className="mb-4" components={['PageLayout', 'FormPreviewPage', 'Toast']} />
+      {/* @clean-demo-end */}
       <FormPreviewPage
         formJson={vendorRegistrationSampleForm}
         formName="Vendor Registration"
