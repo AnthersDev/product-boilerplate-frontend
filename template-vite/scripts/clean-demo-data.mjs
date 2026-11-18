@@ -121,45 +121,45 @@ export const useHomePage = () => useQuery(homePageQueryOptions());
 `;
 
 update(reportHandlersPath, (source) => {
-    let result = replaceSection(
-      source,
-      'const ORDERS: ReportOrderNode[] = [',
-      'const REPORT_FILTERS = [',
-      'const ORDERS: ReportOrderNode[] = [];\n\n',
-      reportHandlersPath,
-      'const ORDERS: ReportOrderNode[] = [];',
-    );
-    result = replaceSection(
-      result,
-      'const DEFAULT_VIEWS: SavedFilterView[] = [',
-      'const ok =',
-      'const DEFAULT_VIEWS: SavedFilterView[] = [];\n\n',
-      reportHandlersPath,
-      'const DEFAULT_VIEWS: SavedFilterView[] = [];',
-    );
-    return result;
+  let result = replaceSection(
+    source,
+    'const ORDERS: ReportOrderNode[] = [',
+    'const REPORT_FILTERS = [',
+    'const ORDERS: ReportOrderNode[] = [];\n\n',
+    reportHandlersPath,
+    'const ORDERS: ReportOrderNode[] = [];',
+  );
+  result = replaceSection(
+    result,
+    'const DEFAULT_VIEWS: SavedFilterView[] = [',
+    'const ok =',
+    'const DEFAULT_VIEWS: SavedFilterView[] = [];\n\n',
+    reportHandlersPath,
+    'const DEFAULT_VIEWS: SavedFilterView[] = [];',
+  );
+  return result;
 });
 
 update(homeHandlersPath, (source) => {
-    let result = replaceOnce(
-      source,
-      'const fail = (status: number, message: string): MockResponse => ({ status, data: { status: false, message } });\n',
-      '',
-      homeHandlersPath,
-      'handler: ({ adapterStorage }) => {',
-    );
-    result = replaceSection(
-      result,
-      'const EMPTY_HOME: HomePageDataProps = {',
-      'export const homeMockRoutes:',
-      '',
-      homeHandlersPath,
-      'handler: ({ adapterStorage }) => {',
-    );
-    result = replaceToEnd(
-      result,
-      'export const homeMockRoutes:',
-      `export const homeMockRoutes: MockRoute[] = [
+  let result = replaceOnce(
+    source,
+    'const fail = (status: number, message: string): MockResponse => ({ status, data: { status: false, message } });\n',
+    '',
+    homeHandlersPath,
+    'handler: ({ adapterStorage }) => {',
+  );
+  result = replaceSection(
+    result,
+    'const EMPTY_HOME: HomePageDataProps = {',
+    'export const homeMockRoutes:',
+    '',
+    homeHandlersPath,
+    'handler: ({ adapterStorage }) => {',
+  );
+  result = replaceToEnd(
+    result,
+    'export const homeMockRoutes:',
+    `export const homeMockRoutes: MockRoute[] = [
   {
     method: 'GET',
     path: '/home',
@@ -171,139 +171,133 @@ update(homeHandlersPath, (source) => {
   },
 ];
 `,
-      homeHandlersPath,
-      'handler: ({ adapterStorage }) => {',
-    );
-    return result;
+    homeHandlersPath,
+    'handler: ({ adapterStorage }) => {',
+  );
+  return result;
 });
 
 update(homeHookPath, (source) => {
-    if (!source.includes('useHomeDemoScenario')) {
-      if (source === cleanHomeHook) return source;
-      throw new Error(`Unexpected contents in ${homeHookPath}. No files were changed.`);
-    }
-    return cleanHomeHook;
+  if (!source.includes('useHomeDemoScenario')) {
+    if (source === cleanHomeHook) return source;
+    throw new Error(`Unexpected contents in ${homeHookPath}. No files were changed.`);
+  }
+  return cleanHomeHook;
 });
 
 update(homeTypesPath, (source) => {
-    const result = replaceToEnd(
-      source,
-      '/** Mock/API demo states.',
-      '',
-      homeTypesPath,
-      'export interface HomePageDataProps',
-    );
-    return `${result.trimEnd()}\n`;
+  const result = replaceToEnd(
+    source,
+    '/** Mock/API demo states.',
+    '',
+    homeTypesPath,
+    'export interface HomePageDataProps',
+  );
+  return `${result.trimEnd()}\n`;
 });
 
 update(homeServicePath, (source) => {
-    let result = replaceOnce(
-      source,
-      "import type { HomeDemoScenarioProps, HomePageDataProps } from '../types';",
-      "import type { HomePageDataProps } from '../types';",
-      homeServicePath,
-      "import type { HomePageDataProps } from '../types';",
-    );
-    result = replaceOnce(
-      result,
-      '  page: (scenario: HomeDemoScenarioProps) => [...homeQueryKeys.all, scenario] as const,',
-      "  page: () => [...homeQueryKeys.all, 'page'] as const,",
-      homeServicePath,
-      "  page: () => [...homeQueryKeys.all, 'page'] as const,",
-    );
-    result = replaceOnce(
-      result,
-      `export const fetchHomePage = async (scenario: HomeDemoScenarioProps = 'default') => {
+  let result = replaceOnce(
+    source,
+    "import type { HomeDemoScenarioProps, HomePageDataProps } from '../types';",
+    "import type { HomePageDataProps } from '../types';",
+    homeServicePath,
+    "import type { HomePageDataProps } from '../types';",
+  );
+  result = replaceOnce(
+    result,
+    '  page: (scenario: HomeDemoScenarioProps) => [...homeQueryKeys.all, scenario] as const,',
+    "  page: () => [...homeQueryKeys.all, 'page'] as const,",
+    homeServicePath,
+    "  page: () => [...homeQueryKeys.all, 'page'] as const,",
+  );
+  result = replaceOnce(
+    result,
+    `export const fetchHomePage = async (scenario: HomeDemoScenarioProps = 'default') => {
   const { data } = await httpClient.get<ApiEnvelope<HomePageDataProps>>(HOME_ENDPOINT, {
     params: scenario === 'default' ? undefined : { scenario },
   });
   return data.data;
 };`,
-      `export const fetchHomePage = async () => {
+    `export const fetchHomePage = async () => {
   const { data } = await httpClient.get<ApiEnvelope<HomePageDataProps>>(HOME_ENDPOINT);
   return data.data;
 };`,
-      homeServicePath,
-      'export const fetchHomePage = async () =>',
-    );
-    return replaceOnce(
-      result,
-      `export const homePageQueryOptions = (scenario: HomeDemoScenarioProps = 'default') =>
+    homeServicePath,
+    'export const fetchHomePage = async () =>',
+  );
+  return replaceOnce(
+    result,
+    `export const homePageQueryOptions = (scenario: HomeDemoScenarioProps = 'default') =>
   queryOptions({
     queryKey: homeQueryKeys.page(scenario),
     queryFn: () => fetchHomePage(scenario),
   });`,
-      `export const homePageQueryOptions = () =>
+    `export const homePageQueryOptions = () =>
   queryOptions({
     queryKey: homeQueryKeys.page(),
     queryFn: fetchHomePage,
   });`,
-      homeServicePath,
-      'queryKey: homeQueryKeys.page(),',
-    );
+    homeServicePath,
+    'queryKey: homeQueryKeys.page(),',
+  );
 });
 
 update(homeIndexPath, (source) => {
-    let result = replaceOnce(
-      source,
-      "export { useHomeDemoScenario, useHomePage } from './hooks/use-home';",
-      "export { useHomePage } from './hooks/use-home';",
-      homeIndexPath,
-      "export { useHomePage } from './hooks/use-home';",
-    );
-    return replaceOnce(
-      result,
-      '  parseHomeDemoScenario,\n  type HomeDemoScenarioProps,\n',
-      '',
-      homeIndexPath,
-      'type HomePageDataProps',
-    );
+  let result = replaceOnce(
+    source,
+    "export { useHomeDemoScenario, useHomePage } from './hooks/use-home';",
+    "export { useHomePage } from './hooks/use-home';",
+    homeIndexPath,
+    "export { useHomePage } from './hooks/use-home';",
+  );
+  return replaceOnce(
+    result,
+    '  parseHomeDemoScenario,\n  type HomeDemoScenarioProps,\n',
+    '',
+    homeIndexPath,
+    'type HomePageDataProps',
+  );
 });
 
 update(homePagePath, (source) => {
-    let result = replaceOnce(
-      source,
-      "import { Link } from 'react-router-dom';\n",
-      '',
-      homePagePath,
-      "import { useSession } from '@/features/auth';",
-    );
-    result = replaceOnce(
-      result,
-      "import { HomePageLoading, HomePageSections, useHomeDemoScenario, useHomePage } from '@/features/home';",
-      "import { HomePageLoading, HomePageSections, useHomePage } from '@/features/home';",
-      homePagePath,
-      "import { HomePageLoading, HomePageSections, useHomePage } from '@/features/home';",
-    );
-    result = replaceOnce(
-      result,
-      "import { env } from '@/libs/env';\n",
-      '',
-      homePagePath,
-      'const home = useHomePage();',
-    );
-    result = replaceOnce(
-      result,
-      '  const scenario = useHomeDemoScenario();\n',
-      '',
-      homePagePath,
-      'const home = useHomePage();',
-    );
-    result = replaceSection(
-      result,
-      '      {env.useMockApi && (',
-      '      {home.isPending',
-      '',
-      homePagePath,
-      'const home = useHomePage();',
-    );
-    return result;
+  let result = replaceOnce(
+    source,
+    "import { Link } from 'react-router-dom';\n",
+    '',
+    homePagePath,
+    "import { useSession } from '@/features/auth';",
+  );
+  result = replaceOnce(
+    result,
+    "import { HomePageLoading, HomePageSections, useHomeDemoScenario, useHomePage } from '@/features/home';",
+    "import { HomePageLoading, HomePageSections, useHomePage } from '@/features/home';",
+    homePagePath,
+    "import { HomePageLoading, HomePageSections, useHomePage } from '@/features/home';",
+  );
+  result = replaceOnce(result, "import { env } from '@/libs/env';\n", '', homePagePath, 'const home = useHomePage();');
+  result = replaceOnce(
+    result,
+    '  const scenario = useHomeDemoScenario();\n',
+    '',
+    homePagePath,
+    'const home = useHomePage();',
+  );
+  result = replaceSection(
+    result,
+    '      {env.useMockApi && (',
+    '      {home.isPending',
+    '',
+    homePagePath,
+    'const home = useHomePage();',
+  );
+  return result;
 });
 
 update(homeContentPath, (source) => {
-    let result = replaceOnce(
-      source,
-      `        actions={
+  let result = replaceOnce(
+    source,
+    `        actions={
           env.useMockApi ? (
             <Button variant="outline" onClick={() => navigate('/?home=default')}>
               Load sample data
@@ -311,74 +305,74 @@ update(homeContentPath, (source) => {
           ) : undefined
         }
 `,
-      '',
-      homeContentPath,
-      '<StatusScreen',
-    );
-    return replaceOnce(
-      result,
-      `    return (
+    '',
+    homeContentPath,
+    '<StatusScreen',
+  );
+  return replaceOnce(
+    result,
+    `    return (
       <StatusScreen
         title="Nothing on your home page yet"
         description={data.description}
       />
     );`,
-      '    return <StatusScreen title="Nothing on your home page yet" description={data.description} />;',
-      homeContentPath,
-      'export const HomePageSections',
-    );
+    '    return <StatusScreen title="Nothing on your home page yet" description={data.description} />;',
+    homeContentPath,
+    'export const HomePageSections',
+  );
 });
 
 update(registrationFormPath, (source) => {
-    if (!source.includes("id: 'company'") && source.includes('sections: []')) {
-      return source.includes('Empty registration form after') ? source : cleanRegistrationForm;
-    }
-    if (source.trim() === cleanRegistrationForm.trim()) return source;
-    return cleanRegistrationForm;
+  if (!source.includes("id: 'company'") && source.includes('sections: []')) {
+    return source.includes('Empty registration form after') ? source : cleanRegistrationForm;
+  }
+  if (source.trim() === cleanRegistrationForm.trim()) return source;
+  return cleanRegistrationForm;
 });
 
 update(readmePath, (source) => {
-    let result = source;
-    const demoDescription = 'Home (Anthers shell). Mock demos: `?home=empty`, `?home=error`';
-    if (result.includes(demoDescription)) {
-      result = replaceOnce(result, demoDescription, 'Home (Anthers shell)', readmePath, 'Home (Anthers shell)');
-    }
+  let result = source;
+  const demoDescription = 'Home (Anthers shell). Mock demos: `?home=empty`, `?home=error`';
+  if (result.includes(demoDescription)) {
+    result = replaceOnce(result, demoDescription, 'Home (Anthers shell)', readmePath, 'Home (Anthers shell)');
+  }
 
-    const registrationDemo =
-      'Vendor registration demo (`FormPreviewPage` multi-section sample: Company → Brand → Bank → Contact)';
-    if (result.includes(registrationDemo)) {
-      result = replaceOnce(
-        result,
-        registrationDemo,
-        'Vendor registration (`FormPreviewPage`; sample sections cleared by `npm run clean:demo`)',
-        readmePath,
-        'sample sections cleared by',
-      );
-    }
+  const registrationDemo =
+    'Vendor registration demo (`FormPreviewPage` multi-section sample: Company → Brand → Bank → Contact)';
+  if (result.includes(registrationDemo)) {
+    result = replaceOnce(
+      result,
+      registrationDemo,
+      'Vendor registration (`FormPreviewPage`; sample sections cleared by `npm run clean:demo`)',
+      readmePath,
+      'sample sections cleared by',
+    );
+  }
 
-    const storybookUiNotes = [
-      'In the running app, dashed **Storybook** button bars sit near Anthers usages (open Chromatic in a new tab). They ship from `src/demo/anthers-storybook` and are removed by `npm run clean:demo`.',
-      'In the running app, dashed **Anthers component docs** bars sit near Anthers usages. Each button opens that component in Chromatic Storybook (new tab). Copy explains they are demo-only and removed by `npm run clean:demo`. Source: `src/demo/anthers-storybook`.',
-    ];
-    for (const storybookUiNote of storybookUiNotes) {
-      if (result.includes(storybookUiNote)) {
-        result = replaceOnce(result, `${storybookUiNote}\n\n`, '', readmePath, 'docs/anthers-storybook.md');
-      }
+  const storybookUiNotes = [
+    'In the running app, dashed **Storybook** button bars sit near Anthers usages (open Chromatic in a new tab). They ship from `src/demo/anthers-storybook` and are removed by `npm run clean:demo`.',
+    'In the running app, dashed **Anthers component docs** bars sit near Anthers usages. Each button opens that component in Chromatic Storybook (new tab). Copy explains they are demo-only and removed by `npm run clean:demo`. Source: `src/demo/anthers-storybook`.',
+  ];
+  for (const storybookUiNote of storybookUiNotes) {
+    if (result.includes(storybookUiNote)) {
+      result = replaceOnce(result, `${storybookUiNote}\n\n`, '', readmePath, 'docs/anthers-storybook.md');
     }
+  }
 
-    const cleanDemoScripts =
-      'Strip demo mock data, homepage demo controls, registration sample form fields, and on-page Anthers Storybook buttons';
-    if (result.includes(cleanDemoScripts)) {
-      result = replaceOnce(
-        result,
-        cleanDemoScripts,
-        'Strip demo mock data, homepage demo controls, and registration sample form fields',
-        readmePath,
-        'Strip demo mock data, homepage demo controls, and registration sample form fields',
-      );
-    }
+  const cleanDemoScripts =
+    'Strip demo mock data, homepage demo controls, registration sample form fields, and on-page Anthers Storybook buttons';
+  if (result.includes(cleanDemoScripts)) {
+    result = replaceOnce(
+      result,
+      cleanDemoScripts,
+      'Strip demo mock data, homepage demo controls, and registration sample form fields',
+      readmePath,
+      'Strip demo mock data, homepage demo controls, and registration sample form fields',
+    );
+  }
 
-    return result;
+  return result;
 });
 
 storybookUsagePaths.forEach((relativePath) => {
