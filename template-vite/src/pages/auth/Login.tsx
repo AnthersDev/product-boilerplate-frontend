@@ -4,6 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { LoginPage } from '@marmeto_engineering/anthers-components';
 
 import { brand } from '@/config';
+import { AnthersStorybookLinks } from '@/demo/anthers-storybook';
 import { clearAnthersAuthToken, signInEndpoint } from '@/features/auth';
 import { env } from '@/libs/env';
 import { MOCK_AUTH_EMAILS } from '@/services/mocks/mock-auth-emails';
@@ -49,6 +50,11 @@ const Login = () => {
   return (
     <div onClickCapture={onMockGoogleSignInCapture}>
       {env.useMockApi && <MockSignInHint />}
+      {/* @clean-demo anthers-storybook */}
+      <div className="fixed right-4 bottom-4 z-50 max-w-sm">
+        <AnthersStorybookLinks components={['LoginPage']} />
+      </div>
+      {/* @clean-demo-end */}
       <LoginPage
         backendAuthEndpoint={signInEndpoint}
         redirectUrl={MAGIC_LINK_REDIRECT_URL}

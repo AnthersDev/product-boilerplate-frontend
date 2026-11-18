@@ -9,6 +9,7 @@ import { Button, SelectOrganizationPage } from '@marmeto_engineering/anthers-com
 
 import { StatusScreen } from '@/components/StatusScreen';
 import { brand } from '@/config';
+import { AnthersStorybookLinks } from '@/demo/anthers-storybook';
 import { useOrganizations, useSelectOrganization, useSignOut } from '@/features/auth';
 import { ApiError } from '@/services/api';
 
@@ -99,6 +100,11 @@ const SelectOrganization = () => {
 
   return (
     <div className="relative min-h-screen">
+      {/* @clean-demo anthers-storybook */}
+      <div className="fixed right-4 bottom-4 z-50 max-w-sm">
+        <AnthersStorybookLinks components={['SelectOrganizationPage', 'Button', 'HeadingWithDescription']} />
+      </div>
+      {/* @clean-demo-end */}
       {selection.isError && (
         <p role="alert" className="text-small absolute inset-x-0 top-6 z-10 px-6 text-center text-red-600">
           {selection.error.message}

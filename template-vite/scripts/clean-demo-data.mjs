@@ -1,13 +1,148 @@
 import { log } from 'node:console';
-import { readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { argv, exit } from 'node:process';
 import { fileURLToPath } from 'node:url';
+import ts from 'typescript';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const isDryRun = argv.includes('--dry-run');
 
 const read = (relativePath) => readFileSync(path.join(root, relativePath), 'utf8');
+
+const STORYBOOK_DEMO_START = '{/* @clean-demo anthers-storybook */}';
+const STORYBOOK_DEMO_END = '{/* @clean-demo-end */}';
+const storybookDemoDir = 'src/demo/anthers-storybook';
+const storybookModulePathPattern = /^@\/demo\/anthers-storybook(?:\/|$)/;
+
+const parseSource = (source, fileName = 'source.tsx') =>
+  ts.createSourceFile(fileName, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+
+const isStorybookModuleSpecifier = (node) =>
+  node !== undefined && ts.isStringLiteralLike(node) && storybookModulePathPattern.test(node.text);
+
+const hasStorybookModuleImport = (source) => {
+  const sourceFile = parseSource(source);
+  let found = false;
+  const visit = (node) => {
+    if (ts.isImportDeclaration(node) && isStorybookModuleSpecifier(node.moduleSpecifier)) {
+      found = true;
+      return;
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(sourceFile);
+  return found;
+};
+
+const removeStorybookModuleImports = (source) => {
+  const sourceFile = parseSource(source);
+  const ranges = [];
+  const visit = (node) => {
+    if (ts.isImportDeclaration(node) && isStorybookModuleSpecifier(node.moduleSpecifier)) {
+      const importStart = node.getStart(sourceFile);
+      const lineStart = source.lastIndexOf('\n', importStart - 1) + 1;
+      const start = source.slice(lineStart, importStart).trim() === '' ? lineStart : importStart;
+      let end = node.end;
+      while (source[end] === ' ' || source[end] === '\t') end += 1;
+      if (source[end] === '\r') end += 1;
+      if (source[end] === '\n') end += 1;
+      ranges.push([start, end]);
+      return;
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(sourceFile);
+  return ranges
+    .sort(([left], [right]) => right - left)
+    .reduce((result, [start, end]) => `${result.slice(0, start)}${result.slice(end)}`, source);
+};
+
+const hasStorybookModuleReference = (source) => {
+  const sourceFile = parseSource(source);
+  let found = false;
+  const visit = (node) => {
+    if (
+      ((ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) &&
+        node.moduleSpecifier &&
+        isStorybookModuleSpecifier(node.moduleSpecifier)) ||
+      (ts.isCallExpression(node) &&
+        ((node.expression.kind === ts.SyntaxKind.ImportKeyword && isStorybookModuleSpecifier(node.arguments[0])) ||
+          (ts.isIdentifier(node.expression) &&
+            node.expression.text === 'require' &&
+            isStorybookModuleSpecifier(node.arguments[0])))) ||
+      (ts.isImportTypeNode(node) &&
+        ts.isLiteralTypeNode(node.argument) &&
+        isStorybookModuleSpecifier(node.argument.literal)) ||
+      (ts.isIdentifier(node) && node.text === 'AnthersStorybookLinks')
+    ) {
+      found = true;
+      return;
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(sourceFile);
+  return found;
+};
+
+const listSourceFiles = (absoluteDirectory, relativeDirectory = 'src') =>
+  readdirSync(absoluteDirectory, { withFileTypes: true }).flatMap((entry) => {
+    const absolutePath = path.join(absoluteDirectory, entry.name);
+    const relativePath = path.posix.join(relativeDirectory, entry.name);
+    if (entry.isDirectory()) return listSourceFiles(absolutePath, relativePath);
+    return entry.isFile() && /\.[cm]?[jt]sx?$/.test(entry.name) ? [relativePath] : [];
+  });
+
+/** Pages/features that mount clickable Anthers Storybook demo buttons. */
+const storybookUsagePaths = [
+  'src/pages/Home.tsx',
+  'src/features/home/home-page-content.tsx',
+  'src/pages/registration/Registration.tsx',
+  'src/pages/analytics/Reports.tsx',
+  'src/pages/settings/Settings.tsx',
+  'src/pages/settings/user-management/UsersList.tsx',
+  'src/pages/settings/user-management/AddUser.tsx',
+  'src/pages/settings/user-management/UserDetails.tsx',
+  'src/pages/settings/notifications/Notifications.tsx',
+  'src/pages/settings/notifications/NotificationDetail.tsx',
+  'src/pages/WhatsNew.tsx',
+  'src/pages/NotFound.tsx',
+  'src/pages/auth/Login.tsx',
+  'src/pages/auth/SelectOrganization.tsx',
+  'src/pages/permissions/PermissionsOverview.tsx',
+  'src/pages/permissions/PermissionsAllowed.tsx',
+  'src/pages/permissions/PermissionsAccessDenied.tsx',
+  'src/pages/permissions/PermissionsHidden.tsx',
+];
+
+const stripAnthersStorybookDemo = (source, relativePath) => {
+  let result = source;
+  let removedDemoBlock = false;
+  while (result.includes(STORYBOOK_DEMO_START)) {
+    const start = result.indexOf(STORYBOOK_DEMO_START);
+    const nextStart = result.indexOf(STORYBOOK_DEMO_START, start + STORYBOOK_DEMO_START.length);
+    const end = result.indexOf(STORYBOOK_DEMO_END, start);
+    if (end === -1) {
+      throw new Error(`Missing ${STORYBOOK_DEMO_END} in ${relativePath}. No files were changed.`);
+    }
+    if (nextStart !== -1 && nextStart < end) {
+      throw new Error(`Found nested ${STORYBOOK_DEMO_START} in ${relativePath}. No files were changed.`);
+    }
+
+    const startLine = result.lastIndexOf('\n', start - 1) + 1;
+    const removeStart = result.slice(startLine, start).trim() === '' ? startLine : start;
+    const endAfterMarker = end + STORYBOOK_DEMO_END.length;
+    const endLineBreak = result.indexOf('\n', endAfterMarker);
+    const endLine = result.slice(endAfterMarker, endLineBreak === -1 ? result.length : endLineBreak);
+    const removeEnd = endLine.trim() === '' ? (endLineBreak === -1 ? result.length : endLineBreak + 1) : endAfterMarker;
+
+    result = `${result.slice(0, removeStart)}${result.slice(removeEnd)}`;
+    removedDemoBlock = true;
+  }
+
+  if (removedDemoBlock) result = removeStorybookModuleImports(result);
+  return result;
+};
 
 const replaceOnce = (source, before, after, relativePath, alreadyCleanMarker = after) => {
   const first = source.indexOf(before);
@@ -19,6 +154,23 @@ const replaceOnce = (source, before, after, relativePath, alreadyCleanMarker = a
     throw new Error(`Found multiple matching source sections in ${relativePath}. No files were changed.`);
   }
   return `${source.slice(0, first)}${after}${source.slice(first + before.length)}`;
+};
+
+const removeParagraph = (source, paragraph, relativePath, alreadyCleanMarker) => {
+  const start = source.indexOf(paragraph);
+  if (start === -1) {
+    if (alreadyCleanMarker && source.includes(alreadyCleanMarker)) return source;
+    throw new Error(`Could not find expected source section in ${relativePath}. No files were changed.`);
+  }
+  if (source.indexOf(paragraph, start + paragraph.length) !== -1) {
+    throw new Error(`Found multiple matching source sections in ${relativePath}. No files were changed.`);
+  }
+  const paragraphEnd = start + paragraph.length;
+  const paragraphBreak = /^(?:[ \t]*\r?\n){2}/.exec(source.slice(paragraphEnd))?.[0];
+  if (!paragraphBreak) {
+    throw new Error(`Could not find the paragraph break in ${relativePath}. No files were changed.`);
+  }
+  return `${source.slice(0, start)}${source.slice(paragraphEnd + paragraphBreak.length)}`;
 };
 
 const replaceSection = (source, startMarker, endMarker, replacement, relativePath, alreadyCleanMarker) => {
@@ -43,7 +195,14 @@ const replaceToEnd = (source, startMarker, replacement, relativePath, alreadyCle
   return `${source.slice(0, start)}${replacement}`;
 };
 
-const update = (relativePath, transform) => [relativePath, transform(read(relativePath))];
+/** Collect transforms per path so overlapping clean steps (e.g. Home + Storybook) compose. */
+const transformPipeline = new Map();
+
+const update = (relativePath, transform, { optional = false } = {}) => {
+  const transforms = transformPipeline.get(relativePath) ?? [];
+  transforms.push({ transform, optional });
+  transformPipeline.set(relativePath, transforms);
+};
 
 const reportHandlersPath = 'src/services/mocks/reports-handlers.ts';
 const homeHandlersPath = 'src/services/mocks/home-handlers.ts';
@@ -69,46 +228,46 @@ import { homePageQueryOptions } from '../services/home-service';
 export const useHomePage = () => useQuery(homePageQueryOptions());
 `;
 
-const changes = [
-  update(reportHandlersPath, (source) => {
-    let result = replaceSection(
-      source,
-      'const ORDERS: ReportOrderNode[] = [',
-      'const REPORT_FILTERS = [',
-      'const ORDERS: ReportOrderNode[] = [];\n\n',
-      reportHandlersPath,
-      'const ORDERS: ReportOrderNode[] = [];',
-    );
-    result = replaceSection(
-      result,
-      'const DEFAULT_VIEWS: SavedFilterView[] = [',
-      'const ok =',
-      'const DEFAULT_VIEWS: SavedFilterView[] = [];\n\n',
-      reportHandlersPath,
-      'const DEFAULT_VIEWS: SavedFilterView[] = [];',
-    );
-    return result;
-  }),
-  update(homeHandlersPath, (source) => {
-    let result = replaceOnce(
-      source,
-      'const fail = (status: number, message: string): MockResponse => ({ status, data: { status: false, message } });\n',
-      '',
-      homeHandlersPath,
-      'handler: ({ adapterStorage }) => {',
-    );
-    result = replaceSection(
-      result,
-      'const EMPTY_HOME: HomePageDataProps = {',
-      'export const homeMockRoutes:',
-      '',
-      homeHandlersPath,
-      'handler: ({ adapterStorage }) => {',
-    );
-    result = replaceToEnd(
-      result,
-      'export const homeMockRoutes:',
-      `export const homeMockRoutes: MockRoute[] = [
+update(reportHandlersPath, (source) => {
+  let result = replaceSection(
+    source,
+    'const ORDERS: ReportOrderNode[] = [',
+    'const REPORT_FILTERS = [',
+    'const ORDERS: ReportOrderNode[] = [];\n\n',
+    reportHandlersPath,
+    'const ORDERS: ReportOrderNode[] = [];',
+  );
+  result = replaceSection(
+    result,
+    'const DEFAULT_VIEWS: SavedFilterView[] = [',
+    'const ok =',
+    'const DEFAULT_VIEWS: SavedFilterView[] = [];\n\n',
+    reportHandlersPath,
+    'const DEFAULT_VIEWS: SavedFilterView[] = [];',
+  );
+  return result;
+});
+
+update(homeHandlersPath, (source) => {
+  let result = replaceOnce(
+    source,
+    'const fail = (status: number, message: string): MockResponse => ({ status, data: { status: false, message } });\n',
+    '',
+    homeHandlersPath,
+    'handler: ({ adapterStorage }) => {',
+  );
+  result = replaceSection(
+    result,
+    'const EMPTY_HOME: HomePageDataProps = {',
+    'export const homeMockRoutes:',
+    '',
+    homeHandlersPath,
+    'handler: ({ adapterStorage }) => {',
+  );
+  result = replaceToEnd(
+    result,
+    'export const homeMockRoutes:',
+    `export const homeMockRoutes: MockRoute[] = [
   {
     method: 'GET',
     path: '/home',
@@ -120,133 +279,133 @@ const changes = [
   },
 ];
 `,
-      homeHandlersPath,
-      'handler: ({ adapterStorage }) => {',
-    );
-    return result;
-  }),
-  update(homeHookPath, (source) => {
-    if (!source.includes('useHomeDemoScenario')) {
-      if (source === cleanHomeHook) return source;
-      throw new Error(`Unexpected contents in ${homeHookPath}. No files were changed.`);
-    }
-    return cleanHomeHook;
-  }),
-  update(homeTypesPath, (source) => {
-    const result = replaceToEnd(
-      source,
-      '/** Mock/API demo states.',
-      '',
-      homeTypesPath,
-      'export interface HomePageDataProps',
-    );
-    return `${result.trimEnd()}\n`;
-  }),
-  update(homeServicePath, (source) => {
-    let result = replaceOnce(
-      source,
-      "import type { HomeDemoScenarioProps, HomePageDataProps } from '../types';",
-      "import type { HomePageDataProps } from '../types';",
-      homeServicePath,
-      "import type { HomePageDataProps } from '../types';",
-    );
-    result = replaceOnce(
-      result,
-      '  page: (scenario: HomeDemoScenarioProps) => [...homeQueryKeys.all, scenario] as const,',
-      "  page: () => [...homeQueryKeys.all, 'page'] as const,",
-      homeServicePath,
-      "  page: () => [...homeQueryKeys.all, 'page'] as const,",
-    );
-    result = replaceOnce(
-      result,
-      `export const fetchHomePage = async (scenario: HomeDemoScenarioProps = 'default') => {
+    homeHandlersPath,
+    'handler: ({ adapterStorage }) => {',
+  );
+  return result;
+});
+
+update(homeHookPath, (source) => {
+  if (!source.includes('useHomeDemoScenario')) {
+    if (source === cleanHomeHook) return source;
+    throw new Error(`Unexpected contents in ${homeHookPath}. No files were changed.`);
+  }
+  return cleanHomeHook;
+});
+
+update(homeTypesPath, (source) => {
+  const result = replaceToEnd(
+    source,
+    '/** Mock/API demo states.',
+    '',
+    homeTypesPath,
+    'export interface HomePageDataProps',
+  );
+  return `${result.trimEnd()}\n`;
+});
+
+update(homeServicePath, (source) => {
+  let result = replaceOnce(
+    source,
+    "import type { HomeDemoScenarioProps, HomePageDataProps } from '../types';",
+    "import type { HomePageDataProps } from '../types';",
+    homeServicePath,
+    "import type { HomePageDataProps } from '../types';",
+  );
+  result = replaceOnce(
+    result,
+    '  page: (scenario: HomeDemoScenarioProps) => [...homeQueryKeys.all, scenario] as const,',
+    "  page: () => [...homeQueryKeys.all, 'page'] as const,",
+    homeServicePath,
+    "  page: () => [...homeQueryKeys.all, 'page'] as const,",
+  );
+  result = replaceOnce(
+    result,
+    `export const fetchHomePage = async (scenario: HomeDemoScenarioProps = 'default') => {
   const { data } = await httpClient.get<ApiEnvelope<HomePageDataProps>>(HOME_ENDPOINT, {
     params: scenario === 'default' ? undefined : { scenario },
   });
   return data.data;
 };`,
-      `export const fetchHomePage = async () => {
+    `export const fetchHomePage = async () => {
   const { data } = await httpClient.get<ApiEnvelope<HomePageDataProps>>(HOME_ENDPOINT);
   return data.data;
 };`,
-      homeServicePath,
-      'export const fetchHomePage = async () =>',
-    );
-    return replaceOnce(
-      result,
-      `export const homePageQueryOptions = (scenario: HomeDemoScenarioProps = 'default') =>
+    homeServicePath,
+    'export const fetchHomePage = async () =>',
+  );
+  return replaceOnce(
+    result,
+    `export const homePageQueryOptions = (scenario: HomeDemoScenarioProps = 'default') =>
   queryOptions({
     queryKey: homeQueryKeys.page(scenario),
     queryFn: () => fetchHomePage(scenario),
   });`,
-      `export const homePageQueryOptions = () =>
+    `export const homePageQueryOptions = () =>
   queryOptions({
     queryKey: homeQueryKeys.page(),
     queryFn: fetchHomePage,
   });`,
-      homeServicePath,
-      'queryKey: homeQueryKeys.page(),',
-    );
-  }),
-  update(homeIndexPath, (source) => {
-    let result = replaceOnce(
-      source,
-      "export { useHomeDemoScenario, useHomePage } from './hooks/use-home';",
-      "export { useHomePage } from './hooks/use-home';",
-      homeIndexPath,
-      "export { useHomePage } from './hooks/use-home';",
-    );
-    return replaceOnce(
-      result,
-      '  parseHomeDemoScenario,\n  type HomeDemoScenarioProps,\n',
-      '',
-      homeIndexPath,
-      'type HomePageDataProps',
-    );
-  }),
-  update(homePagePath, (source) => {
-    let result = replaceOnce(
-      source,
-      "import { Link } from 'react-router-dom';\n",
-      '',
-      homePagePath,
-      "import { useSession } from '@/features/auth';",
-    );
-    result = replaceOnce(
-      result,
-      "import { HomePageLoading, HomePageSections, useHomeDemoScenario, useHomePage } from '@/features/home';",
-      "import { HomePageLoading, HomePageSections, useHomePage } from '@/features/home';",
-      homePagePath,
-      "import { HomePageLoading, HomePageSections, useHomePage } from '@/features/home';",
-    );
-    result = replaceOnce(
-      result,
-      "import { env } from '@/libs/env';\n",
-      '',
-      homePagePath,
-      'const home = useHomePage();',
-    );
-    result = replaceOnce(
-      result,
-      '  const scenario = useHomeDemoScenario();\n',
-      '',
-      homePagePath,
-      'const home = useHomePage();',
-    );
-    result = replaceSection(
-      result,
-      '      {env.useMockApi && (',
-      '      {home.isPending',
-      '',
-      homePagePath,
-      'const home = useHomePage();',
-    );
-    return result;
-  }),
-  update(homeContentPath, (source) => {
-    let result = replaceOnce(
-      source,
-      `        actions={
+    homeServicePath,
+    'queryKey: homeQueryKeys.page(),',
+  );
+});
+
+update(homeIndexPath, (source) => {
+  let result = replaceOnce(
+    source,
+    "export { useHomeDemoScenario, useHomePage } from './hooks/use-home';",
+    "export { useHomePage } from './hooks/use-home';",
+    homeIndexPath,
+    "export { useHomePage } from './hooks/use-home';",
+  );
+  return replaceOnce(
+    result,
+    '  parseHomeDemoScenario,\n  type HomeDemoScenarioProps,\n',
+    '',
+    homeIndexPath,
+    'type HomePageDataProps',
+  );
+});
+
+update(homePagePath, (source) => {
+  let result = replaceOnce(
+    source,
+    "import { Link } from 'react-router-dom';\n",
+    '',
+    homePagePath,
+    "import { useSession } from '@/features/auth';",
+  );
+  result = replaceOnce(
+    result,
+    "import { HomePageLoading, HomePageSections, useHomeDemoScenario, useHomePage } from '@/features/home';",
+    "import { HomePageLoading, HomePageSections, useHomePage } from '@/features/home';",
+    homePagePath,
+    "import { HomePageLoading, HomePageSections, useHomePage } from '@/features/home';",
+  );
+  result = replaceOnce(result, "import { env } from '@/libs/env';\n", '', homePagePath, 'const home = useHomePage();');
+  result = replaceOnce(
+    result,
+    '  const scenario = useHomeDemoScenario();\n',
+    '',
+    homePagePath,
+    'const home = useHomePage();',
+  );
+  result = replaceSection(
+    result,
+    '      {env.useMockApi && (',
+    '      {home.isPending',
+    '',
+    homePagePath,
+    'const home = useHomePage();',
+  );
+  return result;
+});
+
+update(homeContentPath, (source) => {
+  let result = replaceOnce(
+    source,
+    `        actions={
           env.useMockApi ? (
             <Button variant="outline" onClick={() => navigate('/?home=default')}>
               Load sample data
@@ -254,56 +413,155 @@ const changes = [
           ) : undefined
         }
 `,
-      '',
-      homeContentPath,
-      '<StatusScreen',
-    );
-    return replaceOnce(
-      result,
-      `    return (
+    '',
+    homeContentPath,
+    '<StatusScreen',
+  );
+  return replaceOnce(
+    result,
+    `    return (
       <StatusScreen
         title="Nothing on your home page yet"
         description={data.description}
       />
     );`,
-      '    return <StatusScreen title="Nothing on your home page yet" description={data.description} />;',
-      homeContentPath,
-      'export const HomePageSections',
+    '    return <StatusScreen title="Nothing on your home page yet" description={data.description} />;',
+    homeContentPath,
+    'export const HomePageSections',
+  );
+});
+
+update(registrationFormPath, (source) => {
+  if (!source.includes("id: 'company'") && source.includes('sections: []')) {
+    return source.includes('Empty registration form after') ? source : cleanRegistrationForm;
+  }
+  if (source.trim() === cleanRegistrationForm.trim()) return source;
+  return cleanRegistrationForm;
+});
+
+update(readmePath, (source) => {
+  let result = source;
+  const demoDescription = 'Home (Anthers shell). Mock demos: `?home=empty`, `?home=error`';
+  if (result.includes(demoDescription)) {
+    result = replaceOnce(result, demoDescription, 'Home (Anthers shell)', readmePath, 'Home (Anthers shell)');
+  }
+
+  const registrationDemo =
+    'Vendor registration demo (`FormPreviewPage` multi-section sample: Company → Brand → Bank → Contact)';
+  if (result.includes(registrationDemo)) {
+    result = replaceOnce(
+      result,
+      registrationDemo,
+      'Vendor registration (`FormPreviewPage`; sample sections cleared by `npm run clean:demo`)',
+      readmePath,
+      'sample sections cleared by',
     );
-  }),
-  update(registrationFormPath, (source) => {
-    if (!source.includes("id: 'company'") && source.includes('sections: []')) {
-      return source.includes('Empty registration form after') ? source : cleanRegistrationForm;
+  }
+
+  const storybookUiNotes = [
+    'In the running app, dashed **Storybook** button bars sit near Anthers usages (open Chromatic in a new tab). They ship from `src/demo/anthers-storybook` and are removed by `npm run clean:demo`.',
+    'In the running app, dashed **Anthers component docs** bars sit near Anthers usages. Each button opens that component in Chromatic Storybook (new tab). Copy explains they are demo-only and removed by `npm run clean:demo`. Source: `src/demo/anthers-storybook`.',
+  ];
+  for (const storybookUiNote of storybookUiNotes) {
+    if (result.includes(storybookUiNote)) {
+      result = removeParagraph(result, storybookUiNote, readmePath, null);
     }
-    if (source.trim() === cleanRegistrationForm.trim()) return source;
-    return cleanRegistrationForm;
-  }),
-  update(readmePath, (source) => {
-    let result = source;
-    const demoDescription = 'Home (Anthers shell). Mock demos: `?home=empty`, `?home=error`';
-    if (result.includes(demoDescription)) {
-      result = replaceOnce(result, demoDescription, 'Home (Anthers shell)', readmePath, 'Home (Anthers shell)');
+  }
+
+  const optionalStorybookBarInstruction =
+    'For a clickable demo bar, register its page in `storybookUsagePaths` in `scripts/clean-demo-data.mjs` (the markers alone do not register it), then wrap `<AnthersStorybookLinks components={[...]} />` in `{/* @clean-demo anthers-storybook */}` … `{/* @clean-demo-end */}` markers.';
+  const optionalInstructionStart = result.indexOf(optionalStorybookBarInstruction);
+  if (optionalInstructionStart !== -1) {
+    const previousCharacter = result[optionalInstructionStart - 1];
+    let separator = '';
+    if (previousCharacter === '\n') {
+      separator = result[optionalInstructionStart - 2] === '\r' ? '\r\n' : '\n';
+    } else if (previousCharacter === ' ') {
+      separator = ' ';
+    }
+    if (!separator) {
+      throw new Error(`Could not find expected sentence separator in ${readmePath}. No files were changed.`);
+    }
+    result = replaceOnce(
+      result,
+      `${separator}${optionalStorybookBarInstruction}`,
+      separator === ' ' ? '' : separator,
+      readmePath,
+      'docs/anthers-storybook.md',
+    );
+  }
+
+  const storybookCleanupInstruction =
+    'When adding an Anthers Storybook demo bar to a page, register that page in `storybookUsagePaths` in `scripts/clean-demo-data.mjs`; the `@clean-demo` markers alone do not register a page for cleanup.';
+  if (result.includes(storybookCleanupInstruction)) {
+    result = removeParagraph(result, storybookCleanupInstruction, readmePath, null);
+  }
+
+  const cleanDemoScripts =
+    'Strip demo mock data, homepage demo controls, registration sample form fields, and on-page Anthers Storybook buttons';
+  if (result.includes(cleanDemoScripts)) {
+    result = replaceOnce(
+      result,
+      cleanDemoScripts,
+      'Strip demo mock data, homepage demo controls, and registration sample form fields',
+      readmePath,
+      'Strip demo mock data, homepage demo controls, and registration sample form fields',
+    );
+  }
+
+  return result;
+});
+
+storybookUsagePaths.forEach((relativePath) => {
+  update(relativePath, (source) => stripAnthersStorybookDemo(source, relativePath), { optional: true });
+});
+
+const registeredStorybookPaths = new Set(storybookUsagePaths);
+const sourceFiles = listSourceFiles(path.join(root, 'src'));
+for (const relativePath of sourceFiles) {
+  if (relativePath.startsWith(`${storybookDemoDir}/`) || registeredStorybookPaths.has(relativePath)) continue;
+  const source = read(relativePath);
+  if (hasStorybookModuleImport(source) && source.includes(STORYBOOK_DEMO_START)) {
+    update(relativePath, (content) => stripAnthersStorybookDemo(content, relativePath));
+  }
+}
+
+const storybookDemoAbs = path.join(root, storybookDemoDir);
+const willRemoveStorybookDemo = existsSync(storybookDemoAbs);
+
+const changed = [...transformPipeline.entries()]
+  .map(([relativePath, transforms]) => {
+    let originalContent;
+    try {
+      originalContent = read(relativePath);
+    } catch (error) {
+      if (error.code === 'ENOENT' && transforms.every(({ optional }) => optional)) {
+        return null;
+      }
+      throw error;
     }
 
-    const registrationDemo =
-      'Vendor registration demo (`FormPreviewPage` multi-section sample: Company → Brand → Bank → Contact)';
-    if (result.includes(registrationDemo)) {
-      result = replaceOnce(
-        result,
-        registrationDemo,
-        'Vendor registration (`FormPreviewPage`; sample sections cleared by `npm run clean:demo`)',
-        readmePath,
-        'sample sections cleared by',
-      );
+    let content = originalContent;
+    for (const { transform } of transforms) {
+      content = transform(content);
     }
+    return [relativePath, content, originalContent];
+  })
+  .filter((entry) => entry !== null && entry[1] !== entry[2]);
 
-    return result;
-  }),
-];
+const changedContent = new Map(changed.map(([relativePath, content]) => [relativePath, content]));
+const remainingStorybookReferences = sourceFiles.filter((relativePath) => {
+  if (relativePath.startsWith(`${storybookDemoDir}/`)) return false;
+  const source = changedContent.get(relativePath) ?? read(relativePath);
+  return hasStorybookModuleReference(source) || /\bAnthersStorybookLinks\b/.test(source);
+});
+if (remainingStorybookReferences.length > 0) {
+  throw new Error(
+    `Storybook module references remain in ${remainingStorybookReferences.join(', ')}. Add cleanup markers or remove those references before cleanup. No files were changed.`,
+  );
+}
 
-const changed = changes.filter(([relativePath, content]) => content !== read(relativePath));
-
-if (changed.length === 0) {
+if (changed.length === 0 && !willRemoveStorybookDemo) {
   log('Demo data is already cleaned.');
   exit(0);
 }
@@ -311,6 +569,7 @@ if (changed.length === 0) {
 if (isDryRun) {
   log('The following files would be updated:');
   changed.forEach(([relativePath]) => log(`- ${relativePath}`));
+  if (willRemoveStorybookDemo) log(`- (delete) ${storybookDemoDir}/`);
   exit(0);
 }
 
@@ -318,4 +577,10 @@ for (const [relativePath, content] of changed) {
   writeFileSync(path.join(root, relativePath), content);
 }
 
-log(`Cleaned demo report data, homepage states, and registration sample form in ${changed.length} files.`);
+if (willRemoveStorybookDemo) {
+  rmSync(storybookDemoAbs, { recursive: true, force: true });
+}
+
+log(
+  `Cleaned demo report data, homepage states, registration sample form, and Anthers Storybook UI links in ${changed.length} file(s)${willRemoveStorybookDemo ? ` (removed ${storybookDemoDir})` : ''}.`,
+);

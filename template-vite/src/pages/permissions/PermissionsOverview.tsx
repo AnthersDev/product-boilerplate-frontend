@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 /** Storybook: PageLayout — https://main--685923032e27da931cdadb63.chromatic.com/?path=/story/layouts-page-layout--docs */
 import { PageLayout } from '@marmeto_engineering/anthers-components';
 
+import { AnthersStorybookLinks } from '@/demo/anthers-storybook';
 import { useSession } from '@/features/auth';
 import { env } from '@/libs/env';
 
@@ -19,6 +20,12 @@ const PermissionsOverview = () => {
       title="Permissions demo"
       description="Nested sidebar examples of Anthers menu permissions and the local PermissionGuard."
     >
+      {/* @clean-demo anthers-storybook */}
+      <AnthersStorybookLinks
+        className="mb-4"
+        components={['PageLayout', 'Sidebar', 'PermissionGuard', 'AccessDenied']}
+      />
+      {/* @clean-demo-end */}
       <div className="text-body flex max-w-2xl flex-col gap-6 text-zinc-700">
         <p>
           The <strong>Permissions</strong> sidebar group uses nested <code>subItems</code>. Items can declare{' '}

@@ -1,0 +1,441 @@
+name: Build and Deploy to S3
+
+# Auto-deploy on push (same pattern as Ping / Nexus / Pulse):
+# - `staging` branch → GitHub Environment `staging`
+# - `main` branch → GitHub Environment `production`
+on:
+  push:
+    branches:
+      - main
+      - staging
+  workflow_dispatch:
+    inputs:
+      rollback_ref:
+        description: Optional full commit SHA for a deliberate rollback; leave empty for the selected branch head
+        required: false
+        type: string
+
+concurrency:
+  group: deploy-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+  queue: max
+
+permissions: {}
+
+jobs:
+  validate-deployment-ref:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require an exact deployment branch ref
+        run: |
+          case "$GITHUB_REF" in
+            refs/heads/main|refs/heads/staging) ;;
+            *)
+              echo "Deployments are allowed only from refs/heads/main or refs/heads/staging." >&2
+              exit 1
+              ;;
+          esac
+
+  build-and-deploy:
+    needs: validate-deployment-ref
+    if: needs.validate-deployment-ref.result == 'success'
+    permissions:
+      contents: read
+      deployments: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: ${{ github.ref_name == 'main' && 'production' || 'staging' }}
+    env:
+      DEPLOYMENT_TASK: frontend-publication
+
+    steps:
+      - name: Record Slack notification availability
+        id: slack
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          if [ -n "$SLACK_WEBHOOK_URL" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Validate rollback reference and record requested SHA
+        id: requested
+        env:
+          ROLLBACK_REF: ${{ inputs.rollback_ref }}
+        run: |
+          if [ -z "$ROLLBACK_REF" ]; then
+            requested_sha="$GITHUB_SHA"
+          elif [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ] && [[ "$ROLLBACK_REF" =~ ^[0-9a-fA-F]{40}$ ]]; then
+            requested_sha="$ROLLBACK_REF"
+          else
+            echo "sha=Invalid rollback_ref (must be a full commit SHA)" >> "$GITHUB_OUTPUT"
+            echo "rollback_ref must be a full commit SHA supplied by workflow_dispatch." >&2
+            exit 1
+          fi
+          echo "sha=$requested_sha" >> "$GITHUB_OUTPUT"
+
+      - name: Approve rollback target
+        if: ${{ inputs.rollback_ref != '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ROLLBACK_REF: ${{ inputs.rollback_ref }}
+          DEPLOY_ENVIRONMENT: ${{ github.ref_name == 'main' && 'production' || 'staging' }}
+          AWS_REGION: ${{ vars.AWS_REGION }}
+          AWS_S3_BUCKET: ${{ vars.AWS_S3_BUCKET }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        run: |
+          normalized_rollback_ref="${ROLLBACK_REF,,}"
+          deployment_ids="$(gh api --paginate --jq '.[].id' \
+            "repos/${GITHUB_REPOSITORY}/deployments?sha=${normalized_rollback_ref}&environment=${DEPLOY_ENVIRONMENT}&task=${DEPLOYMENT_TASK}&per_page=100")"
+          approved=false
+          while IFS= read -r deployment_id; do
+            [ -n "$deployment_id" ] || continue
+            if ! deployment_statuses="$(gh api --paginate --jq 'any(.[]; .state == "success")' \
+              "repos/${GITHUB_REPOSITORY}/deployments/${deployment_id}/statuses")"; then
+              echo "Could not retrieve statuses for deployment $deployment_id." >&2
+              exit 1
+            fi
+            if grep -qx true <<< "$deployment_statuses"; then
+              approved=true
+              break
+            fi
+          done <<< "$deployment_ids"
+          if [ "$approved" != true ]; then
+            evidence_key="deployment-evidence/${DEPLOY_ENVIRONMENT}/${normalized_rollback_ref}.json"
+            if evidence_error="$(aws s3api head-object --bucket "$AWS_S3_BUCKET" --key "$evidence_key" 2>&1 >/dev/null)"; then
+              approved=true
+              echo "Found durable publication evidence for $ROLLBACK_REF in $DEPLOY_ENVIRONMENT."
+            else
+              evidence_status=$?
+              if [[ "$evidence_error" != *"(404)"* && "$evidence_error" != *"Not Found"* ]]; then
+                echo "Could not verify publication evidence: $evidence_error" >&2
+                exit "$evidence_status"
+              fi
+            fi
+          fi
+          if [ "$approved" != true ]; then
+            echo "Rollback target must have completed a successful deployment to the $DEPLOY_ENVIRONMENT environment." >&2
+            exit 1
+          fi
+          echo "Rollback target $ROLLBACK_REF was previously deployed successfully to the $DEPLOY_ENVIRONMENT environment."
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.rollback_ref || github.sha }}
+
+      - name: Record checked-out commit SHA
+        id: checked-out
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Check durable publication evidence
+        id: publication-evidence
+        env:
+          DEPLOY_SHA: ${{ steps.checked-out.outputs.sha }}
+          DEPLOY_ENVIRONMENT: ${{ github.ref_name == 'main' && 'production' || 'staging' }}
+          AWS_REGION: ${{ vars.AWS_REGION }}
+          AWS_S3_BUCKET: ${{ vars.AWS_S3_BUCKET }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        run: |
+          echo "already_published=false" >> "$GITHUB_OUTPUT"
+          if [ -z "$AWS_REGION" ] || [ -z "$AWS_S3_BUCKET" ] || [ -z "$AWS_ACCESS_KEY_ID" ] || [ -z "$AWS_SECRET_ACCESS_KEY" ]; then
+            echo "AWS settings are unavailable; publication evidence cannot be checked before deployment validation."
+            exit 0
+          fi
+
+          evidence_key="deployment-evidence/${DEPLOY_ENVIRONMENT}/${DEPLOY_SHA}.json"
+          if evidence_error="$(aws s3api head-object --bucket "$AWS_S3_BUCKET" --key "$evidence_key" 2>&1 >/dev/null)"; then
+            echo "already_published=true" >> "$GITHUB_OUTPUT"
+            echo "Found durable publication evidence for $DEPLOY_SHA in $DEPLOY_ENVIRONMENT; skipping build and publication."
+          else
+            evidence_status=$?
+            if [[ "$evidence_error" == *"(404)"* || "$evidence_error" == *"Not Found"* ]]; then
+              echo "No durable publication evidence found for $DEPLOY_SHA in $DEPLOY_ENVIRONMENT."
+            else
+              echo "Could not verify publication evidence: $evidence_error" >&2
+              exit "$evidence_status"
+            fi
+          fi
+
+      - name: Verify deployment commit is current branch head
+        id: head
+        env:
+          ROLLBACK_REF: ${{ inputs.rollback_ref }}
+          ALREADY_PUBLISHED: ${{ steps.publication-evidence.outputs.already_published }}
+        run: |
+          if [ -n "$ROLLBACK_REF" ]; then
+            echo "is_current=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::Deploying the explicitly requested rollback commit $ROLLBACK_REF."
+            exit 0
+          fi
+          if [ "$ALREADY_PUBLISHED" = true ]; then
+            echo "is_current=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::Publication for $GITHUB_SHA already completed; retrying only the GitHub deployment status record."
+            exit 0
+          fi
+
+          if ! remote_ref="$(git ls-remote --exit-code origin "refs/heads/${GITHUB_REF_NAME}")"; then
+            echo "Could not verify the current $GITHUB_REF_NAME branch head." >&2
+            exit 1
+          fi
+          branch_head="${remote_ref%%$'\t'*}"
+          if [ "$branch_head" = "$GITHUB_SHA" ]; then
+            echo "is_current=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "is_current=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Skipping stale deployment for $GITHUB_SHA; $GITHUB_REF_NAME now points to $branch_head."
+          fi
+
+      # Fail early if the selected GitHub Environment is missing AWS / API config.
+      - name: Validate deploy configuration
+        if: ${{ steps.head.outputs.is_current == 'true' && steps.publication-evidence.outputs.already_published != 'true' }}
+        env:
+          DEPLOY_ENVIRONMENT: ${{ github.ref_name == 'main' && 'production' || 'staging' }}
+          AWS_REGION: ${{ vars.AWS_REGION }}
+          AWS_S3_BUCKET: ${{ vars.AWS_S3_BUCKET }}
+          CLOUDFRONT_DISTRIBUTION_ID: ${{ vars.CLOUDFRONT_DISTRIBUTION_ID }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
+          VITE_SSO_APP_ID: ${{ vars.VITE_SSO_APP_ID || secrets.VITE_SSO_APP_ID }}
+        run: |
+          if [ -n "$VITE_SSO_APP_ID" ]; then
+            echo "Google/Gmail sign-in app ID is configured for the ${DEPLOY_ENVIRONMENT} build."
+          else
+            echo "::warning::VITE_SSO_APP_ID is not configured for the ${DEPLOY_ENVIRONMENT} build; Google/Gmail sign-in will be unavailable."
+          fi
+          missing=()
+          for name in AWS_REGION AWS_S3_BUCKET CLOUDFRONT_DISTRIBUTION_ID AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY VITE_API_BASE_URL; do
+            if [ -z "${!name}" ]; then
+              missing+=("$name")
+            fi
+          done
+          if [ "${#missing[@]}" -gt 0 ]; then
+            printf 'Missing required settings in the %s GitHub environment: %s\n' "$DEPLOY_ENVIRONMENT" "${missing[*]}" >&2
+            exit 1
+          fi
+
+      - name: Set up Node.js with npm authentication
+        if: ${{ steps.head.outputs.is_current == 'true' && steps.publication-evidence.outputs.already_published != 'true' }}
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          registry-url: https://registry.npmjs.org
+          scope: '@marmeto_engineering'
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN_READ_ONLY }}
+
+      - name: Install dependencies
+        if: ${{ steps.head.outputs.is_current == 'true' && steps.publication-evidence.outputs.already_published != 'true' }}
+        env:
+          # setup-node writes an .npmrc token reference; npm ci also needs the token.
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN_READ_ONLY }}
+        run: npm ci
+
+      - name: Build the project
+        if: ${{ steps.head.outputs.is_current == 'true' && steps.publication-evidence.outputs.already_published != 'true' }}
+        env:
+          # Vite inlines these at build time. Set per GitHub Environment (staging vs production).
+          VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
+          VITE_APP_NAME: ${{ vars.VITE_APP_NAME || 'app' }}
+          VITE_SSO_APP_ID: ${{ vars.VITE_SSO_APP_ID || secrets.VITE_SSO_APP_ID || '' }}
+          VITE_PUBLIC_POSTHOG_PROJECT_TOKEN: ${{ vars.VITE_PUBLIC_POSTHOG_PROJECT_TOKEN || '' }}
+          VITE_PUBLIC_POSTHOG_HOST: ${{ vars.VITE_PUBLIC_POSTHOG_HOST || '' }}
+          VITE_INTERCOM_APP_ID: ${{ vars.VITE_INTERCOM_APP_ID || '' }}
+          VITE_INTERCOM_API_BASE: ${{ vars.VITE_INTERCOM_API_BASE || '' }}
+          # Builds never enable the mock API.
+          VITE_USE_MOCK_API: 'false'
+        run: npm run build
+
+      - name: Validate rollback service worker
+        if: ${{ inputs.rollback_ref != '' && steps.head.outputs.is_current == 'true' && steps.publication-evidence.outputs.already_published != 'true' }}
+        run: |
+          if [ ! -f dist/sw.js ]; then
+            echo "Rollback builds must include dist/sw.js before publication." >&2
+            exit 1
+          fi
+
+      - name: Recheck branch head before publication
+        id: publication
+        if: ${{ steps.head.outputs.is_current == 'true' && steps.publication-evidence.outputs.already_published != 'true' }}
+        env:
+          ROLLBACK_REF: ${{ inputs.rollback_ref }}
+        run: |
+          if [ -n "$ROLLBACK_REF" ]; then
+            echo "is_current=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if ! remote_ref="$(git ls-remote --exit-code origin "refs/heads/${GITHUB_REF_NAME}")"; then
+            echo "Could not verify the current $GITHUB_REF_NAME branch head before publication." >&2
+            exit 1
+          fi
+          branch_head="${remote_ref%%$'\t'*}"
+          if [ "$branch_head" = "$(git rev-parse HEAD)" ]; then
+            echo "is_current=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "is_current=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Skipping publication for stale commit $(git rev-parse HEAD); $GITHUB_REF_NAME now points to $branch_head."
+          fi
+
+      # Hashed Vite output lives in dist/assets. Content hashes → cache for 1 year.
+      - name: Deploy hashed static assets to S3
+        if: ${{ steps.publication.outputs.is_current == 'true' }}
+        uses: jakejarvis/s3-sync-action@master
+        with:
+          # No spaces/quotes: s3-sync-action passes args as Docker CMD.
+          args: --cache-control public,max-age=31536000,immutable --metadata-directive REPLACE
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ vars.AWS_REGION }}
+          AWS_S3_BUCKET: ${{ vars.AWS_S3_BUCKET }}
+          SOURCE_DIR: dist/assets
+          DEST_DIR: assets
+
+      # index.html and other unhashed files must revalidate so deploys go live.
+      - name: Deploy non-worker root files to S3
+        if: ${{ steps.publication.outputs.is_current == 'true' }}
+        uses: jakejarvis/s3-sync-action@master
+        with:
+          args: --exclude=assets/* --exclude=assets/*/* --exclude=sw.js --exclude=workbox-*.js --cache-control no-cache
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ vars.AWS_REGION }}
+          AWS_S3_BUCKET: ${{ vars.AWS_S3_BUCKET }}
+          SOURCE_DIR: dist
+
+      - name: Invalidate non-worker root files and wait for completion
+        if: ${{ steps.publication.outputs.is_current == 'true' }}
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ vars.AWS_REGION }}
+          CLOUDFRONT_DISTRIBUTION_ID: ${{ vars.CLOUDFRONT_DISTRIBUTION_ID }}
+        run: |
+          mapfile -t paths < <(find dist -maxdepth 1 -type f ! -name 'sw.js' ! -name 'workbox-*.js' -printf '/%f\n' | sort)
+          if [ "${#paths[@]}" -eq 0 ]; then
+            echo "No non-worker root files were found to invalidate." >&2
+            exit 1
+          fi
+          invalidation_id="$(aws cloudfront create-invalidation \
+            --distribution-id "$CLOUDFRONT_DISTRIBUTION_ID" \
+            --paths "${paths[@]}" \
+            --query 'Invalidation.Id' \
+            --output text)"
+          aws cloudfront wait invalidation-completed \
+            --distribution-id "$CLOUDFRONT_DISTRIBUTION_ID" \
+            --id "$invalidation_id"
+
+      - name: Deploy Workbox imports to S3
+        if: ${{ steps.publication.outputs.is_current == 'true' }}
+        uses: jakejarvis/s3-sync-action@master
+        with:
+          args: --exclude=* --include=workbox-*.js --cache-control no-cache
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ vars.AWS_REGION }}
+          AWS_S3_BUCKET: ${{ vars.AWS_S3_BUCKET }}
+          SOURCE_DIR: dist
+
+      - name: Deploy service worker to S3
+        if: ${{ steps.publication.outputs.is_current == 'true' }}
+        uses: jakejarvis/s3-sync-action@master
+        with:
+          args: --exclude=* --include=sw.js --cache-control no-cache
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ vars.AWS_REGION }}
+          AWS_S3_BUCKET: ${{ vars.AWS_S3_BUCKET }}
+          SOURCE_DIR: dist
+
+      - name: Invalidate CloudFront and wait for completion
+        if: ${{ steps.publication.outputs.is_current == 'true' }}
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ vars.AWS_REGION }}
+          CLOUDFRONT_DISTRIBUTION_ID: ${{ vars.CLOUDFRONT_DISTRIBUTION_ID }}
+        run: |
+          invalidation_id="$(aws cloudfront create-invalidation \
+            --distribution-id "$CLOUDFRONT_DISTRIBUTION_ID" \
+            --paths '/*' \
+            --query 'Invalidation.Id' \
+            --output text)"
+          aws cloudfront wait invalidation-completed \
+            --distribution-id "$CLOUDFRONT_DISTRIBUTION_ID" \
+            --id "$invalidation_id"
+
+      - name: Save durable publication evidence
+        id: persist-evidence
+        if: ${{ steps.publication.outputs.is_current == 'true' }}
+        env:
+          DEPLOY_SHA: ${{ steps.checked-out.outputs.sha }}
+          DEPLOY_ENVIRONMENT: ${{ github.ref_name == 'main' && 'production' || 'staging' }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ vars.AWS_REGION }}
+          AWS_S3_BUCKET: ${{ vars.AWS_S3_BUCKET }}
+        run: |
+          evidence_key="deployment-evidence/${DEPLOY_ENVIRONMENT}/${DEPLOY_SHA}.json"
+          printf '{"sha":"%s","environment":"%s"}\n' "$DEPLOY_SHA" "$DEPLOY_ENVIRONMENT" \
+            | aws s3 cp - "s3://${AWS_S3_BUCKET}/${evidence_key}" --content-type application/json
+          echo "saved=true" >> "$GITHUB_OUTPUT"
+
+      - name: Record successful deployment
+        id: record-deployment
+        if: ${{ steps.publication-evidence.outputs.already_published == 'true' || steps.persist-evidence.outcome == 'success' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DEPLOY_SHA: ${{ steps.checked-out.outputs.sha }}
+          DEPLOY_ENVIRONMENT: ${{ github.ref_name == 'main' && 'production' || 'staging' }}
+        run: |
+          deployment_payload="$(jq -n --arg ref "$DEPLOY_SHA" --arg environment "$DEPLOY_ENVIRONMENT" --arg task "$DEPLOYMENT_TASK" \
+            '{ref: $ref, environment: $environment, task: $task, auto_merge: false, required_contexts: []}')"
+          deployment_id="$(gh api --method POST "repos/${GITHUB_REPOSITORY}/deployments" --input - <<< "$deployment_payload" | jq -r '.id')"
+          gh api --method POST "repos/${GITHUB_REPOSITORY}/deployments/${deployment_id}/statuses" \
+            --field state=success
+
+      - name: Notify Slack on Success
+        if: ${{ success() && steps.record-deployment.outcome == 'success' && steps.slack.outputs.enabled == 'true' }}
+        continue-on-error: true
+        uses: 8398a7/action-slack@v3
+        with:
+          fields: repo
+          status: success
+          text: |
+            :tada: ${{ vars.PRODUCT_NAME || github.event.repository.name }} *${{ github.ref_name == 'main' && 'production' || 'staging' }}* Deployment Successful!
+            You can access it here: ${{ vars.PRODUCT_FRONTEND_URL }}
+            Branch: ${{ github.ref_name }}
+            Author: ${{ github.actor }}
+            Requested SHA: ${{ steps.requested.outputs.sha }}
+            Checked-out SHA: ${{ steps.checked-out.outputs.sha || 'checkout unavailable' }}
+            Publication evidence: ${{ steps.publication-evidence.outputs.already_published == 'true' && 'existing; publish skipped' || 'saved after invalidation' }}
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+      - name: Notify Slack on Failure
+        if: ${{ failure() && steps.head.outputs.is_current != 'false' && steps.slack.outputs.enabled == 'true' }}
+        uses: 8398a7/action-slack@v3
+        with:
+          fields: repo
+          status: failure
+          text: |
+            :x: ${{ vars.PRODUCT_NAME || github.event.repository.name }} *${{ github.ref_name == 'main' && 'production' || 'staging' }}* ${{ (steps.publication-evidence.outputs.already_published == 'true' || steps.persist-evidence.outcome == 'success') && 'Publication completed, but GitHub deployment status recording failed.' || (steps.publication.outputs.is_current == 'true' && steps.persist-evidence.outcome == 'failure') && 'Publication completed, but saving durable retry evidence failed.' || 'Deployment failed before publication completed.' }}
+
+            Repository: ${{ github.repository }}
+            Branch: ${{ github.ref_name }}
+            Requested SHA: ${{ steps.requested.outputs.sha }}
+            Checked-out SHA: ${{ steps.checked-out.outputs.sha || 'checkout unavailable' }}
+            Author: ${{ github.actor }}
+
+            **Workflow URL:** ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
