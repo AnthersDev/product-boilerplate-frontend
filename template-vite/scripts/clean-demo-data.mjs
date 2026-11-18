@@ -12,6 +12,18 @@ const read = (relativePath) => readFileSync(path.join(root, relativePath), 'utf8
 const STORYBOOK_DEMO_START = '{/* @clean-demo anthers-storybook */}';
 const STORYBOOK_DEMO_END = '{/* @clean-demo-end */}';
 const storybookDemoDir = 'src/demo/anthers-storybook';
+const storybookModuleImportPattern =
+  /^(?:import\b(?:(?!^import\b)[\s\S])*?\bfrom\s+['"]@\/demo\/anthers-storybook['"];?|import\s+['"]@\/demo\/anthers-storybook['"];?)[ \t]*(?:\r?\n|$)/gm;
+
+const listSourceFiles = (absoluteDirectory, relativeDirectory = 'src') =>
+  readdirSync(absoluteDirectory, { withFileTypes: true }).flatMap((entry) => {
+    const absolutePath = path.join(absoluteDirectory, entry.name);
+    const relativePath = path.posix.join(relativeDirectory, entry.name);
+    if (entry.isDirectory()) return listSourceFiles(absolutePath, relativePath);
+    return entry.isFile() && /\.[cm]?[jt]sx?$/.test(entry.name) ? [relativePath] : [];
+  });
+
+const hasStorybookModuleImport = (source) => source.match(storybookModuleImportPattern) !== null;
 
 /** Pages/features that mount clickable Anthers Storybook demo buttons. */
 const storybookUsagePaths = [
@@ -37,6 +49,7 @@ const storybookUsagePaths = [
 
 const stripAnthersStorybookDemo = (source, relativePath) => {
   let result = source;
+  let removedDemoBlock = false;
   while (result.includes(STORYBOOK_DEMO_START)) {
     const start = result.indexOf(STORYBOOK_DEMO_START);
     const nextStart = result.indexOf(STORYBOOK_DEMO_START, start + STORYBOOK_DEMO_START.length);
@@ -56,10 +69,10 @@ const stripAnthersStorybookDemo = (source, relativePath) => {
     const removeEnd = endLine.trim() === '' ? (endLineBreak === -1 ? result.length : endLineBreak + 1) : endAfterMarker;
 
     result = `${result.slice(0, removeStart)}${result.slice(removeEnd)}`;
+    removedDemoBlock = true;
   }
 
-  result = result.replace(/^import \{ AnthersStorybookLinks \} from '@\/demo\/anthers-storybook';\r?\n/gm, '');
-  result = result.replace(/\n{3,}/g, '\n\n');
+  if (removedDemoBlock) result = result.replace(storybookModuleImportPattern, '');
   return result;
 };
 
@@ -73,6 +86,23 @@ const replaceOnce = (source, before, after, relativePath, alreadyCleanMarker = a
     throw new Error(`Found multiple matching source sections in ${relativePath}. No files were changed.`);
   }
   return `${source.slice(0, first)}${after}${source.slice(first + before.length)}`;
+};
+
+const removeParagraph = (source, paragraph, relativePath, alreadyCleanMarker) => {
+  const start = source.indexOf(paragraph);
+  if (start === -1) {
+    if (alreadyCleanMarker && source.includes(alreadyCleanMarker)) return source;
+    throw new Error(`Could not find expected source section in ${relativePath}. No files were changed.`);
+  }
+  if (source.indexOf(paragraph, start + paragraph.length) !== -1) {
+    throw new Error(`Found multiple matching source sections in ${relativePath}. No files were changed.`);
+  }
+  const paragraphEnd = start + paragraph.length;
+  const paragraphBreak = /^(?:[ \t]*\r?\n){2}/.exec(source.slice(paragraphEnd))?.[0];
+  if (!paragraphBreak) {
+    throw new Error(`Could not find the paragraph break in ${relativePath}. No files were changed.`);
+  }
+  return `${source.slice(0, start)}${source.slice(paragraphEnd + paragraphBreak.length)}`;
 };
 
 const replaceSection = (source, startMarker, endMarker, replacement, relativePath, alreadyCleanMarker) => {
@@ -366,33 +396,20 @@ update(readmePath, (source) => {
   ];
   for (const storybookUiNote of storybookUiNotes) {
     if (result.includes(storybookUiNote)) {
-      result = replaceOnce(result, `${storybookUiNote}\n\n`, '', readmePath, 'docs/anthers-storybook.md');
+      result = removeParagraph(result, storybookUiNote, readmePath, 'docs/anthers-storybook.md');
     }
   }
 
   const optionalStorybookBarInstruction =
-    'For a clickable demo bar, wrap `<AnthersStorybookLinks components={[...]} />` in `{/* @clean-demo anthers-storybook */}` … `{/* @clean-demo-end */}` markers.';
+    'For a clickable demo bar, register its page in `storybookUsagePaths` in `scripts/clean-demo-data.mjs` (the markers alone do not register it), then wrap `<AnthersStorybookLinks components={[...]} />` in `{/* @clean-demo anthers-storybook */}` … `{/* @clean-demo-end */}` markers.';
   if (result.includes(optionalStorybookBarInstruction)) {
     result = replaceOnce(result, ` ${optionalStorybookBarInstruction}`, '', readmePath, 'docs/anthers-storybook.md');
   }
 
   const storybookCleanupInstruction =
     'When adding an Anthers Storybook demo bar to a page, register that page in `storybookUsagePaths` in `scripts/clean-demo-data.mjs`; the `@clean-demo` markers alone do not register a page for cleanup.';
-  const storybookInstructionIndex = result.indexOf(storybookCleanupInstruction);
-  if (storybookInstructionIndex !== -1) {
-    if (
-      result.indexOf(storybookCleanupInstruction, storybookInstructionIndex + storybookCleanupInstruction.length) !== -1
-    ) {
-      throw new Error(`Found multiple Storybook cleanup instructions in ${readmePath}. No files were changed.`);
-    }
-    const instructionEnd = storybookInstructionIndex + storybookCleanupInstruction.length;
-    const paragraphBreak = /^(?:\r?\n){2}/.exec(result.slice(instructionEnd))?.[0];
-    if (!paragraphBreak) {
-      throw new Error(
-        `Could not find the end of the Storybook cleanup instruction in ${readmePath}. No files were changed.`,
-      );
-    }
-    result = `${result.slice(0, storybookInstructionIndex)}${result.slice(instructionEnd + paragraphBreak.length)}`;
+  if (result.includes(storybookCleanupInstruction)) {
+    result = removeParagraph(result, storybookCleanupInstruction, readmePath, null);
   }
 
   const cleanDemoScripts =
@@ -413,6 +430,16 @@ update(readmePath, (source) => {
 storybookUsagePaths.forEach((relativePath) => {
   update(relativePath, (source) => stripAnthersStorybookDemo(source, relativePath), { optional: true });
 });
+
+const registeredStorybookPaths = new Set(storybookUsagePaths);
+const sourceFiles = listSourceFiles(path.join(root, 'src'));
+for (const relativePath of sourceFiles) {
+  if (relativePath.startsWith(`${storybookDemoDir}/`) || registeredStorybookPaths.has(relativePath)) continue;
+  const source = read(relativePath);
+  if (hasStorybookModuleImport(source) && source.includes(STORYBOOK_DEMO_START)) {
+    update(relativePath, (content) => stripAnthersStorybookDemo(content, relativePath));
+  }
+}
 
 const storybookDemoAbs = path.join(root, storybookDemoDir);
 const willRemoveStorybookDemo = existsSync(storybookDemoAbs);
@@ -437,6 +464,18 @@ const changed = [...transformPipeline.entries()]
   })
   .filter((entry) => entry !== null && entry[1] !== entry[2]);
 
+const changedContent = new Map(changed.map(([relativePath, content]) => [relativePath, content]));
+const remainingStorybookReferences = sourceFiles.filter((relativePath) => {
+  if (relativePath.startsWith(`${storybookDemoDir}/`)) return false;
+  const source = changedContent.get(relativePath) ?? read(relativePath);
+  return hasStorybookModuleImport(source) || /\bAnthersStorybookLinks\b/.test(source);
+});
+if (remainingStorybookReferences.length > 0) {
+  throw new Error(
+    `Storybook module references remain in ${remainingStorybookReferences.join(', ')}. Add cleanup markers or remove those references before cleanup. No files were changed.`,
+  );
+}
+
 if (changed.length === 0 && !willRemoveStorybookDemo) {
   log('Demo data is already cleaned.');
   exit(0);
@@ -455,10 +494,6 @@ for (const [relativePath, content] of changed) {
 
 if (willRemoveStorybookDemo) {
   rmSync(storybookDemoAbs, { recursive: true, force: true });
-  const demoParent = path.join(root, 'src/demo');
-  if (existsSync(demoParent) && readdirSync(demoParent).length === 0) {
-    rmSync(demoParent, { recursive: true, force: true });
-  }
 }
 
 log(

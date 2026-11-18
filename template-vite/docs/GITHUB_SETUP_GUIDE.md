@@ -56,9 +56,9 @@ Same model as Ping / Nexus / Pulse. Create two GitHub Environments: **`staging`*
 | `staging` | `staging` |
 | `main` | `production` |
 
-In **Settings → Environments → production**, set **Deployment branches and tags** to **Selected branches** and allow only `main`.
+In **Repository Settings → Environments → production**, set **Deployment branches and tags** to **Selected branches** and allow only `main`. In the `staging` environment, select **Selected branches** and allow only `staging`.
 
-Concurrency is per branch (`deploy-…-${{ github.ref }}`): deployments run one at a time, and up to 100 pending runs are preserved; additional runs are canceled if the queue is full. GitHub processes queued runs in the order they enter the queue, which may differ from dispatch order. A push and rollback request share this queue: a push that runs after a rollback publishes the current branch head, while a rollback that runs after a push deliberately restores its approved SHA. Normal push runs skip publication when their commit is no longer the branch head, and recheck immediately before publishing. For an intentional rollback, run `build-and-deploy.yml` with a full commit SHA in its `rollback_ref` input. The workflow accepts only a commit that already completed a successful deployment on the selected branch and requires the built `dist/sw.js` before publishing.
+Concurrency is per branch (`deploy-…-${{ github.ref }}`): deployments run one at a time, and up to 100 pending runs are preserved; additional runs are canceled if the queue is full. GitHub processes queued runs in the order they enter the queue, which may differ from dispatch order. A push queued after a rollback publishes its commit only if it is still the branch head when checked; stale push runs skip, and the newest push run can publish. A rollback queued after a push deliberately restores its approved SHA. Normal push runs recheck branch head immediately before publishing. For an intentional rollback, run `build-and-deploy.yml` with a full commit SHA in its `rollback_ref` input. The workflow accepts only a commit that already completed a successful deployment to the selected environment and requires the built `dist/sw.js` before publishing.
 
 ### Environment variables (Repository Settings → Environments → select the environment → Environment variables)
 
@@ -88,7 +88,7 @@ Configure CloudFront to fall back to `/index.html` for client-side navigation ro
 | `SLACK_WEBHOOK_URL` | No | Success/failure Slack messages (skipped when unset) |
 | `VITE_SSO_APP_ID` | No | Alternate place for the SSO app ID if you prefer a secret |
 
-The workflow validates required AWS + `VITE_API_BASE_URL` settings before building. Hashed files under `dist/assets` sync with a one-year immutable cache; HTML and other files use `no-cache`. Workbox imports upload before `sw.js`, then CloudFront `/*` is invalidated and the workflow waits for completion. If the waiter fails because `cloudfront:GetInvalidation` is missing, grant that permission and redeploy the current branch head to finish publication.
+The workflow validates required AWS + `VITE_API_BASE_URL` settings before building. Hashed files under `dist/assets` sync with a one-year immutable cache; HTML and other files use `no-cache`. Workbox imports upload before `sw.js`, then CloudFront `/*` is invalidated and the workflow waits for completion. If the waiter fails because `cloudfront:GetInvalidation` is missing, grant that permission, then retry the same `rollback_ref` for a rollback or redeploy the current branch head for a normal push to finish publication.
 
 Vite values are baked at build time — changing a GitHub variable requires a new push (or workflow re-run) to take effect.
 

@@ -20,13 +20,28 @@ concurrency:
   cancel-in-progress: false
   queue: max
 
-permissions:
-  actions: read
-  contents: read
+permissions: {}
 
 jobs:
+  validate-deployment-ref:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require an exact deployment branch ref
+        run: |
+          case "$GITHUB_REF" in
+            refs/heads/main|refs/heads/staging) ;;
+            *)
+              echo "Deployments are allowed only from refs/heads/main or refs/heads/staging." >&2
+              exit 1
+              ;;
+          esac
+
   build-and-deploy:
-    if: startsWith(github.ref, 'refs/heads/') && (github.ref_name == 'main' || github.ref_name == 'staging')
+    needs: validate-deployment-ref
+    if: needs.validate-deployment-ref.result == 'success'
+    permissions:
+      contents: read
+      deployments: write
     runs-on: ubuntu-latest
     timeout-minutes: 30
     environment: ${{ github.ref_name == 'main' && 'production' || 'staging' }}
@@ -43,49 +58,46 @@ jobs:
             echo "enabled=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Record requested deployment SHA
+      - name: Validate rollback reference and record requested SHA
         id: requested
         env:
           ROLLBACK_REF: ${{ inputs.rollback_ref }}
-        run: echo "sha=${ROLLBACK_REF:-$GITHUB_SHA}" >> "$GITHUB_OUTPUT"
-
-      - name: Validate rollback reference
-        if: ${{ inputs.rollback_ref != '' }}
-        env:
-          ROLLBACK_REF: ${{ inputs.rollback_ref }}
         run: |
-          if [ "$GITHUB_EVENT_NAME" != "workflow_dispatch" ] || [[ ! "$ROLLBACK_REF" =~ ^[0-9a-fA-F]{40}$ ]]; then
+          if [ -z "$ROLLBACK_REF" ]; then
+            requested_sha="$GITHUB_SHA"
+          elif [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ] && [[ "$ROLLBACK_REF" =~ ^[0-9a-fA-F]{40}$ ]]; then
+            requested_sha="$ROLLBACK_REF"
+          else
+            echo "sha=Invalid rollback_ref (must be a full commit SHA)" >> "$GITHUB_OUTPUT"
             echo "rollback_ref must be a full commit SHA supplied by workflow_dispatch." >&2
             exit 1
           fi
+          echo "sha=$requested_sha" >> "$GITHUB_OUTPUT"
 
       - name: Approve rollback target
         if: ${{ inputs.rollback_ref != '' }}
         env:
           GH_TOKEN: ${{ github.token }}
           ROLLBACK_REF: ${{ inputs.rollback_ref }}
+          DEPLOY_ENVIRONMENT: ${{ github.ref_name == 'main' && 'production' || 'staging' }}
         run: |
           normalized_rollback_ref="${ROLLBACK_REF,,}"
-          workflow_runs="$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/build-and-deploy.yml/runs?head_sha=${normalized_rollback_ref}&branch=${GITHUB_REF_NAME}&status=completed&per_page=100")"
-          run_ids="$(jq -r --arg sha "$normalized_rollback_ref" --arg branch "$GITHUB_REF_NAME" \
-            '.workflow_runs[] | select(.head_sha == $sha and .head_branch == $branch and .conclusion == "success") | .id' \
-            <<< "$workflow_runs")"
+          deployment_ids="$(gh api --paginate --jq '.[].id' \
+            "repos/${GITHUB_REPOSITORY}/deployments?sha=${normalized_rollback_ref}&environment=${DEPLOY_ENVIRONMENT}&per_page=100")"
           approved=false
-          while IFS= read -r run_id; do
-            [ -n "$run_id" ] || continue
-            run_jobs="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${run_id}/jobs?per_page=100")"
-            if jq -e \
-              '.jobs | any(.[]; .conclusion == "success" and any(.steps[]; .name == "Invalidate CloudFront and wait for completion" and .conclusion == "success"))' \
-              <<< "$run_jobs" > /dev/null; then
+          while IFS= read -r deployment_id; do
+            [ -n "$deployment_id" ] || continue
+            if gh api --paginate --jq 'any(.[]; .state == "success")' \
+              "repos/${GITHUB_REPOSITORY}/deployments/${deployment_id}/statuses" | grep -qx true; then
               approved=true
               break
             fi
-          done <<< "$run_ids"
+          done <<< "$deployment_ids"
           if [ "$approved" != true ]; then
-            echo "Rollback target must have completed a successful deployment on the selected branch ($GITHUB_REF_NAME)." >&2
+            echo "Rollback target must have completed a successful deployment to the $DEPLOY_ENVIRONMENT environment." >&2
             exit 1
           fi
-          echo "Rollback target $ROLLBACK_REF was previously deployed successfully to the $GITHUB_REF_NAME environment."
+          echo "Rollback target $ROLLBACK_REF was previously deployed successfully to the $DEPLOY_ENVIRONMENT environment."
 
       - name: Checkout code
         uses: actions/checkout@v4
@@ -302,11 +314,25 @@ jobs:
             --distribution-id "$CLOUDFRONT_DISTRIBUTION_ID" \
             --id "$invalidation_id"
 
+      - name: Record successful deployment
+        if: ${{ steps.publication.outputs.is_current == 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DEPLOY_SHA: ${{ steps.checked-out.outputs.sha }}
+          DEPLOY_ENVIRONMENT: ${{ github.ref_name == 'main' && 'production' || 'staging' }}
+        run: |
+          deployment_payload="$(jq -n --arg ref "$DEPLOY_SHA" --arg environment "$DEPLOY_ENVIRONMENT" \
+            '{ref: $ref, environment: $environment, auto_merge: false, required_contexts: []}')"
+          deployment_id="$(gh api --method POST "repos/${GITHUB_REPOSITORY}/deployments" --input - <<< "$deployment_payload" | jq -r '.id')"
+          gh api --method POST "repos/${GITHUB_REPOSITORY}/deployments/${deployment_id}/statuses" \
+            --field state=success
+
       - name: Notify Slack on Success
         if: ${{ success() && steps.publication.outputs.is_current == 'true' && steps.slack.outputs.enabled == 'true' }}
         continue-on-error: true
         uses: 8398a7/action-slack@v3
         with:
+          fields: repo
           status: success
           text: |
             :tada: ${{ vars.PRODUCT_NAME || github.event.repository.name }} *${{ github.ref_name == 'main' && 'production' || 'staging' }}* Deployment Successful!
@@ -322,6 +348,7 @@ jobs:
         if: ${{ failure() && steps.head.outputs.is_current != 'false' && steps.slack.outputs.enabled == 'true' }}
         uses: 8398a7/action-slack@v3
         with:
+          fields: repo
           status: failure
           text: |
             :x: ${{ vars.PRODUCT_NAME || github.event.repository.name }} *${{ github.ref_name == 'main' && 'production' || 'staging' }}* Deployment Failed!

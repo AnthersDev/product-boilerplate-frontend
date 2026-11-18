@@ -109,7 +109,7 @@ Every Anthers layout/component used in this template has a **Storybook comment a
 
 In the running app, dashed **Anthers component docs** bars sit near Anthers usages. Each button opens that component in Chromatic Storybook (new tab). Copy explains they are demo-only and removed by `npm run clean:demo`. Source: `src/demo/anthers-storybook`.
 
-When you add a new Anthers import, add the matching Storybook URL comment (and a row in `docs/anthers-storybook.md`). For a clickable demo bar, wrap `<AnthersStorybookLinks components={[...]} />` in `{/* @clean-demo anthers-storybook */}` … `{/* @clean-demo-end */}` markers.
+When you add a new Anthers import, add the matching Storybook URL comment (and a row in `docs/anthers-storybook.md`). For a clickable demo bar, register its page in `storybookUsagePaths` in `scripts/clean-demo-data.mjs` (the markers alone do not register it), then wrap `<AnthersStorybookLinks components={[...]} />` in `{/* @clean-demo anthers-storybook */}` … `{/* @clean-demo-end */}` markers.
 
 ### App routes
 
