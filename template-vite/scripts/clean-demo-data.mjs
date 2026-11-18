@@ -396,7 +396,7 @@ update(readmePath, (source) => {
   ];
   for (const storybookUiNote of storybookUiNotes) {
     if (result.includes(storybookUiNote)) {
-      result = removeParagraph(result, storybookUiNote, readmePath, 'docs/anthers-storybook.md');
+      result = removeParagraph(result, storybookUiNote, readmePath, null);
     }
   }
 
